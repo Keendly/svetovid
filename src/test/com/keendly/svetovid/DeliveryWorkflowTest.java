@@ -6,6 +6,7 @@ import com.amazonaws.services.simpleworkflow.flow.DecisionContext;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProvider;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProviderImpl;
 import com.amazonaws.services.simpleworkflow.flow.core.Promise;
+import com.amazonaws.services.simpleworkflow.flow.core.Task;
 import com.amazonaws.services.simpleworkflow.flow.junit.AsyncAssert;
 import com.amazonaws.services.simpleworkflow.flow.junit.FlowBlockJUnit4ClassRunner;
 import com.amazonaws.services.simpleworkflow.flow.junit.WorkflowTest;
@@ -78,11 +79,16 @@ public class DeliveryWorkflowTest {
         mockLambdaCall("veles", extractResults);
 
         // when
-        Promise<String> promise =  workflow.deliver(Jackson.toJsonString(getRequest()));
+        Promise<String> promise = workflow.deliver(Jackson.toJsonString(getRequest()));
 
-
+        new Task(promise) {
+            @Override
+            protected void doExecute() throws Throwable {
+                assertEquals("{\"requests\":[{\"url\":\"http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html?utm_source=newsList&utm_campaign=news\",\"withImages\":true,\"withMetadata\":false}]}", lambdaInputs.get("veles"));
+            }
+        };
         AsyncAssert.assertEqualsWaitFor("Wrong lambda input", "niwim", lambdaInputs.get("veles"), promise);
-//        System.out.println(lambdaInputs.get("veles"));
+        //        System.out.println(lambdaInputs.get("veles"));
     }
 
     @Test
