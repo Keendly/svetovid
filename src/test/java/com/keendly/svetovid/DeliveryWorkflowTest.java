@@ -1,32 +1,25 @@
 package com.keendly.svetovid;
 
-import static org.junit.Assert.*;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
-import com.amazonaws.services.simpleworkflow.flow.DecisionContext;
-import com.amazonaws.services.simpleworkflow.flow.DecisionContextProvider;
-import com.amazonaws.services.simpleworkflow.flow.DecisionContextProviderImpl;
 import com.amazonaws.services.simpleworkflow.flow.core.Promise;
-import com.amazonaws.services.simpleworkflow.flow.core.Task;
-import com.amazonaws.services.simpleworkflow.flow.junit.AsyncAssert;
 import com.amazonaws.services.simpleworkflow.flow.junit.FlowBlockJUnit4ClassRunner;
 import com.amazonaws.services.simpleworkflow.flow.junit.WorkflowTest;
-import com.amazonaws.services.simpleworkflow.flow.test.TestLambdaFunctionClient;
 import com.amazonaws.util.json.Jackson;
 import com.keendly.svetovid.activities.extract.model.ExtractResult;
 import com.keendly.svetovid.model.DeliveryArticle;
 import com.keendly.svetovid.model.DeliveryItem;
 import com.keendly.svetovid.model.DeliveryRequest;
+import com.keendly.utils.mock.LambdaMock;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import static com.keendly.utils.mock.Helpers.*;
 
 @RunWith(FlowBlockJUnit4ClassRunner.class)
 public class DeliveryWorkflowTest {
@@ -36,9 +29,6 @@ public class DeliveryWorkflowTest {
 
     private DeliveryWorkflowClientFactory workflowFactory = new DeliveryWorkflowClientFactoryImpl();
 
-    private Map<String, String> lambdaInputs;
-    private Map<String, String> lambdaOutputs;
-
     DeliveryWorkflowClient workflow;
 
     @Before
@@ -46,21 +36,13 @@ public class DeliveryWorkflowTest {
         // Register activity implementation to be used during test run
 //        BookingActivities activities = new BookingActivitiesImpl(trace);
         workflowTest.addWorkflowImplementationType(DeliveryWorkflowImpl.class);
-        lambdaInputs = new HashMap<>();
-        lambdaOutputs = new HashMap<>();
-
         workflow = workflowFactory.getClient();
-        initLambdaClient();
-    }
 
-    private void initLambdaClient(){
-        DecisionContextProvider decisionProvider = new DecisionContextProviderImpl();
-        DecisionContext decisionContext = decisionProvider.getDecisionContext();
-        TestLambdaFunctionClient lambdaClient = (TestLambdaFunctionClient) decisionContext.getLambdaFunctionClient();
-        lambdaClient.setInvoker((name, input, timeout) -> {
-            lambdaInputs.put(name, input);
-            return lambdaOutputs.get(name);
-        });
+        initInvoker();
+
+
+
+
     }
 
 //    @After
@@ -76,20 +58,30 @@ public class DeliveryWorkflowTest {
         extractResult.text = "blabla";
         extractResult.url = "atam";
         extractResults.add(extractResult);
-        mockLambdaCall("veles", extractResults);
-
+//        mockLambdaCall("veles", extractResults);
         // when
-        Promise<String> promise = workflow.deliver(Jackson.toJsonString(getRequest()));
 
-        new Task(promise) {
-            @Override
-            protected void doExecute() throws Throwable {
-                assertEquals("{\"requests\":[{\"url\":\"http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html?utm_source=newsList&utm_campaign=news\",\"withImages\":true,\"withMetadata\":false}]}", lambdaInputs.get("veles"));
-            }
-        };
-        AsyncAssert.assertEqualsWaitFor("Wrong lambda input", "niwim", lambdaInputs.get("veles"), promise);
+        LambdaMock mock = lambdaMock("veles");
+        Promise<String> promise = workflow.deliver(Jackson.toJsonString(getRequest()));
+        whenInvoked(mock).thenReturn("lala");
+//
+//        new Task(promise) {
+//            @Override
+//            protected void doExecute() throws Throwable {
+//                assertEquals("{\"requests\":[{\"url\":\"http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html?utm_source=newsList&utm_campaign=news\",\"withImages\":true,\"withMetadata\":false}]}", lambdaInputs.get("veles"));
+//            }
+//        };
+//        lambdaInputs.put("veles", new Settable<>());
+//        AsyncAssert.assertEquals("niwim", lambdaInput("veles"));
         //        System.out.println(lambdaInputs.get("veles"));
     }
+
+//    private Promise<String> lambdaInput(String lambdaName){
+//        if (!lambdaInputs.containsKey(lambdaName)){
+//            lambdaInputs.put(lambdaName, new Settable<>());
+//        }
+//        return lambdaInputs.get(lambdaName);
+//    }
 
     @Test
     public void testDeliver_OLD() throws IOException {
@@ -117,12 +109,12 @@ public class DeliveryWorkflowTest {
 
         return request;
     }
-
-    private void mockLambdaCall(String lambdaName, Object output) {
-        lambdaOutputs.put(lambdaName, Jackson.toJsonString(output));
-    }
-
-    private void assertLambdaCalled(String lambdaName, String input) {
-        assertEquals(input, lambdaInputs.get(lambdaName));
-    }
+//
+//    private void mockLambdaCall(String lambdaName, Object output) {
+//        lambdaOutputs.put(lambdaName, Jackson.toJsonString(output));
+//    }
+//
+//    private void assertLambdaCalled(String lambdaName, String input) {
+//        assertEquals(input, lambdaInputs.get(lambdaName));
+//    }
 }
