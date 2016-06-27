@@ -1,17 +1,19 @@
 package com.keendly.utils.mock;
 
+import com.amazonaws.services.simpleworkflow.flow.core.Promise;
+import com.amazonaws.services.simpleworkflow.flow.core.Settable;
+import org.hamcrest.Matcher;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.hamcrest.Matcher;
-
 public class LambdaMock {
 
     private String name;
 
-    private List<Invocation> invocations = new ArrayList<>();
+    private Settable<Invocation> invocation = new Settable<>();
     private Map<Matcher, Helpers.Stubbing> stubs = new HashMap<>();
 
     public LambdaMock(String name){
@@ -26,7 +28,7 @@ public class LambdaMock {
         stubs.put(matcher, stubbing);
     }
 
-    public String getStubbedResponse(String request){
+    protected Promise<String> getStubbedResponse(String request){
         List<Helpers.Stubbing> matched = new ArrayList();
 
         stubs.forEach((k, v) -> {
@@ -47,8 +49,17 @@ public class LambdaMock {
         return matched.get(0).getResponse();
     }
 
-    public void logInvocation(String request){
+    protected void logInvocation(String request){
         Invocation invocation = new Invocation(request);
-        invocations.add(invocation);
+        this.invocation.set(invocation);
+    }
+
+    public Promise<Invocation> getInvocation(){
+        return invocation;
+    }
+
+    public void reset(){
+        invocation = new Settable<>();
+        stubs = new HashMap<>();
     }
 }

@@ -1,14 +1,13 @@
 package com.keendly.svetovid;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import static com.keendly.utils.mock.Helpers.*;
 
-import com.amazonaws.services.simpleworkflow.flow.core.Promise;
 import com.amazonaws.services.simpleworkflow.flow.junit.FlowBlockJUnit4ClassRunner;
 import com.amazonaws.services.simpleworkflow.flow.junit.WorkflowTest;
 import com.amazonaws.util.json.Jackson;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.keendly.svetovid.activities.extract.model.ExtractResult;
 import com.keendly.svetovid.model.DeliveryArticle;
 import com.keendly.svetovid.model.DeliveryItem;
@@ -19,7 +18,10 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import static com.keendly.utils.mock.Helpers.*;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 @RunWith(FlowBlockJUnit4ClassRunner.class)
 public class DeliveryWorkflowTest {
@@ -33,16 +35,13 @@ public class DeliveryWorkflowTest {
 
     @Before
     public void setUp() throws Exception {
-        // Register activity implementation to be used during test run
+        // Register activity implementation to be used during test invoke
 //        BookingActivities activities = new BookingActivitiesImpl(trace);
         workflowTest.addWorkflowImplementationType(DeliveryWorkflowImpl.class);
         workflow = workflowFactory.getClient();
 
         initInvoker();
-
-
-
-
+//        workflowTest.setDisableOutstandingTasksCheck(true);
     }
 
 //    @After
@@ -58,12 +57,23 @@ public class DeliveryWorkflowTest {
         extractResult.text = "blabla";
         extractResult.url = "atam";
         extractResults.add(extractResult);
-//        mockLambdaCall("veles", extractResults);
-        // when
 
+        // when
         LambdaMock mock = lambdaMock("veles");
-        Promise<String> promise = workflow.deliver(Jackson.toJsonString(getRequest()));
-        whenInvoked(mock).thenReturn("lala");
+
+        List<ExtractResult> results = new ArrayList<>();
+        results.add(extractResult);
+        whenInvoked(mock).thenSerializeAndReturn(results);
+
+
+
+        workflow.deliver(Jackson.toJsonString(getRequest()));
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode node = mapper.createObjectNode();
+        ArrayNode requests = mapper.createArrayNode();
+
+
+        verifyInvokedWith(mock, "{\"requests\":[{\"url\":\"http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html?utm_source=newsList&utm_campaign=news\",\"withImages\":true,\"withMetadata\":false}]}");
 //
 //        new Task(promise) {
 //            @Override
@@ -83,7 +93,7 @@ public class DeliveryWorkflowTest {
 //        return lambdaInputs.get(lambdaName);
 //    }
 
-    @Test
+
     public void testDeliver_OLD() throws IOException {
         DeliveryWorkflowClient workflow = workflowFactory.getClient();
 //        Promise<Void> booked = workflow.makeBooking(123, 345, true, true);

@@ -35,12 +35,19 @@
                     <complianceLevel>1.8</complianceLevel>
                     <showWeaveInfo>true</showWeaveInfo>
                     <verbose>true</verbose>
+                    <aspectLibraries>
+                        <!-- include this to ensure @Asynchronous and @ExponentialRetry annotations work -->
+                        <aspectLibrary>
+                            <groupId>com.amazonaws</groupId>
+                            <artifactId>aws-java-sdk-swf-libraries</artifactId>
+                        </aspectLibrary>
+                    </aspectLibraries>
                     <sources>
                         <source>
                             <basedir>src/main/java</basedir>
-                            <includes>
-                                <include>*/**/svetovid/*Workflow.java</include>
-                            </includes>
+                        </source>
+                        <source>
+                            <basedir>src/main/java</basedir>
                         </source>
                     </sources>
                 </configuration>
@@ -94,7 +101,6 @@
             <artifactId>aws-swf-build-tools</artifactId>
             <version>1.0</version>
         </dependency>
-
         <!-- AspectJ -->
         <dependency>
             <groupId>org.aspectj</groupId>

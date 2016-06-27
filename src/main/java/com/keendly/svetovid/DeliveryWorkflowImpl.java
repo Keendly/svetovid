@@ -1,13 +1,9 @@
 package com.keendly.svetovid;
 
-import com.amazonaws.services.simpleworkflow.flow.DecisionContext;
-import com.amazonaws.services.simpleworkflow.flow.DecisionContextProvider;
-import com.amazonaws.services.simpleworkflow.flow.DecisionContextProviderImpl;
 import com.amazonaws.services.simpleworkflow.flow.annotations.Asynchronous;
 import com.amazonaws.services.simpleworkflow.flow.core.Promise;
 import com.amazonaws.services.simpleworkflow.flow.core.Settable;
-import com.amazonaws.services.simpleworkflow.flow.worker.LambdaFunctionClient;
-import com.fasterxml.jackson.databind.JavaType;
+import com.amazonaws.services.simpleworkflow.flow.core.TryCatch;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.keendly.svetovid.activities.extract.ExtractArticlesActivity;
 import com.keendly.svetovid.activities.extract.model.ExtractRequest;
@@ -19,7 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 public class DeliveryWorkflowImpl implements DeliveryWorkflow {
@@ -36,21 +31,33 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
     private DeliveryState state;
 
     @Override
-    public Promise<String> deliver(String requestString) throws IOException {
+    public void deliver(String requestString) throws IOException {
         setState(DeliveryState.STARTED);
 
         // map request string to delivery request object
         DeliveryRequest request = convert(requestString);
 
-        // extract articles
-        ExtractArticlesActivity extractArticlesActivity = new ExtractArticlesActivity();
-        Promise<String> resultPromise = runExtraction(extractArticlesActivity, request);
-//        List<ExtractResult> extractResults = mapExtractionResult(extractArticlesActivity, resultPromise);
-        setState(extractArticlesActivity.getCompletedState(), resultPromise);
-        return resultPromise;
-//
-//        logAsync(resultPromise);
-//
+        new TryCatch() {
+            @Override
+            protected void doTry() throws Throwable {
+                // extract articles
+                ExtractArticlesActivity extractArticlesActivity = new ExtractArticlesActivity();
+                Promise<List<ExtractResult>> results =
+                    extractArticlesActivity.invoke(mapToExtractRequests(request));
+
+                setState(extractArticlesActivity.getCompletedState(), results);
+
+                //
+                logAsync(results);
+            }
+
+            @Override
+            protected void doCatch(Throwable e) throws Throwable {
+                LOG.error("blabla", e);
+            }
+        };
+
+        //
 //        triggerEbookGeneration(request, articlesPromise);
 //        state(State.GENERATION_TRIGGERED);
 //
@@ -61,38 +68,44 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 //        state(State.FINISHED, updatePromise);
     }
 
-    private Promise<String> runExtraction(ExtractArticlesActivity activity, DeliveryRequest deliveryRequest){
-        List<ExtractRequest> extractRequests = mapToExtractRequests(deliveryRequest);
-        DecisionContextProvider decisionProvider = new DecisionContextProviderImpl();
-        DecisionContext decisionContext = decisionProvider.getDecisionContext();
-        LambdaFunctionClient lambdaClient = decisionContext.getLambdaFunctionClient();
-        return lambdaClient.scheduleLambdaFunction("veles", activity.mapInput(extractRequests));
-//        return activity.invoke(extractRequests);
-    }
+//    private Promise<String> runExtraction(ExtractArticlesActivity activity, DeliveryRequest deliveryRequest){
+//
+//        List<ExtractRequest> extractRequests = mapToExtractRequests(deliveryRequest);
+//        DecisionContextProvider decisionProvider = new DecisionContextProviderImpl();
+//        DecisionContext decisionContext = decisionProvider.getDecisionContext();
+//
+//        LambdaFunctionClient lambdaClient = decisionContext.getLambdaFunctionClient();
+//        return lambdaClient.scheduleLambdaFunction("veles", activity.mapInput(extractRequests));
+////        return activity.invoke(extractRequests);
+//    }
+//
+//    @Asynchronous
+//    private List<ExtractResult> mapExtractionResult(ExtractArticlesActivity activity, Promise<String> resultPromise)
+//        throws IOException {
+//        return activity.mapOutput(resultPromise.get());
+//    }
 
-    @Asynchronous
-    private List<ExtractResult> mapExtractionResult(ExtractArticlesActivity activity, Promise<String> resultPromise)
-        throws IOException {
-        return activity.mapOutput(resultPromise.get());
-    }
+    private ExtractRequest mapToExtractRequests(DeliveryRequest request){
+        ExtractRequest extractRequest = new ExtractRequest();
 
-    private List<ExtractRequest> mapToExtractRequests(DeliveryRequest request){
-        List<ExtractRequest> extractRequests = new ArrayList<>();
         for (DeliveryItem item : request.items){
             for (DeliveryArticle article : item.articles){
-                ExtractRequest extractRequest = new ExtractRequest();
-                extractRequest.url = article.url;
-                extractRequest.withImages = item.withImages;
-                extractRequest.withMetadata = Boolean.FALSE;
-                extractRequests.add(extractRequest);
+                ExtractRequest.ExtractRequestItem requestItem = new ExtractRequest.ExtractRequestItem();
+                requestItem.url = article.url;
+                requestItem.withImages = item.withImages;
+                requestItem.withMetadata = Boolean.FALSE;
+                extractRequest.requests.add(requestItem);
             }
         }
-        return extractRequests;
+        return extractRequest;
     }
 
     @Asynchronous
-    private void logAsync(Promise<String> text){
-        LOG.debug(text.get());
+    public void logAsync(Promise<List<ExtractResult>> result){
+        for (ExtractResult res : result.get()){
+            LOG.debug(res.url);
+            LOG.debug(res.text);
+        }
     }
 
     private DeliveryRequest convert(String s) throws IOException {
@@ -117,18 +130,6 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 //        List<ExtractResult> extractResults = fromJson(articles.get());
 //        return BookMapper.toBook(request, extractResults);
 //    }
-
-    private List<ExtractResult> fromJson(String json){
-        ObjectMapper mapper = new ObjectMapper();
-        JavaType type = mapper.getTypeFactory().
-            constructCollectionType(List.class, ExtractResult.class);
-        try {
-            return mapper.readValue(json, type);
-        } catch (IOException e) {
-            LOG.error("Error deserializing: " + json, e);
-            return null;
-        }
-    }
 
     @Override
     public void ebookGenerated(String key) {
@@ -176,7 +177,7 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
     }
 
     @Asynchronous
-    private void setState(DeliveryState state, Promise waitFor){
+    public void setState(DeliveryState state, Promise waitFor){
         this.state = state;
     }
 

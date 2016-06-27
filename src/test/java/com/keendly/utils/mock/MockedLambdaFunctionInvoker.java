@@ -1,19 +1,20 @@
 package com.keendly.utils.mock;
 
+import com.amazonaws.services.simpleworkflow.flow.core.Promise;
+
 import java.util.HashMap;
 import java.util.Map;
 
-import com.amazonaws.services.simpleworkflow.flow.test.TestLambdaFunctionInvoker;
-
-public class MockedLambdaFunctionInvoker implements TestLambdaFunctionInvoker {
+public class MockedLambdaFunctionInvoker implements AsyncTestLambdaFunctionInvoker {
 
     private Map<String, LambdaMock> mocks = new HashMap();
 
     @Override
-    public String invoke(String functionName, String input, long timeout) {
+    public Promise<String> invoke(String functionName, String input, long timeout) {
         if (isMocked(functionName)){
             LambdaMock mock = getMock(functionName);
             mock.logInvocation(input);
+
             return mock.getStubbedResponse(input);
         }
 

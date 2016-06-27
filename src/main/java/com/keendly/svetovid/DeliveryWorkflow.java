@@ -5,7 +5,6 @@ import com.amazonaws.services.simpleworkflow.flow.annotations.GetState;
 import com.amazonaws.services.simpleworkflow.flow.annotations.Signal;
 import com.amazonaws.services.simpleworkflow.flow.annotations.Workflow;
 import com.amazonaws.services.simpleworkflow.flow.annotations.WorkflowRegistrationOptions;
-import com.amazonaws.services.simpleworkflow.flow.core.Promise;
 
 import java.io.IOException;
 
@@ -14,7 +13,7 @@ import java.io.IOException;
 public interface DeliveryWorkflow {
 
     @Execute(version = "1.0")
-    Promise<String> deliver(String deliveryRequest) throws IOException;
+    void deliver(String deliveryRequest) throws IOException;
 
     @Signal
     void ebookGenerated(String ebookPath);

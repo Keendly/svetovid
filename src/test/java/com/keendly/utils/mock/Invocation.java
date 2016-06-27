@@ -5,14 +5,14 @@ import java.util.Date;
 public class Invocation {
 
     private Date timestamp;
-    private String argument;
+    private String request;
 
     public Invocation(String request){
         this.timestamp = new Date();
-        this.argument = request;
+        this.request = request;
     }
 
-    private String getArgument(){
-        return argument;
+    public String getRequest(){
+        return request;
     }
 }

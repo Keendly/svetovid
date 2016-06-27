@@ -3,29 +3,42 @@ package com.keendly.utils.mock;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContext;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProvider;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProviderImpl;
-import com.amazonaws.services.simpleworkflow.flow.test.TestLambdaFunctionClient;
+import com.amazonaws.services.simpleworkflow.flow.WorkflowClock;
+import com.amazonaws.services.simpleworkflow.flow.core.Promise;
+import com.amazonaws.services.simpleworkflow.flow.core.Settable;
+import com.amazonaws.services.simpleworkflow.flow.core.Task;
+import com.amazonaws.services.simpleworkflow.flow.test.TestDecisionContext;
+import com.amazonaws.services.simpleworkflow.flow.worker.CurrentDecisionContext;
+import com.amazonaws.util.json.Jackson;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
+import org.junit.Assert;
 
 public class Helpers {
 
     private static MockedLambdaFunctionInvoker invoker;
 
     public static void initInvoker(){
-        invoker = new MockedLambdaFunctionInvoker();
+        AsyncTestLambdaFunctionClient client = new AsyncTestLambdaFunctionClient();
+        invoker = client.getInvoker();
 
         DecisionContextProvider decisionProvider = new DecisionContextProviderImpl();
         DecisionContext decisionContext = decisionProvider.getDecisionContext();
-        TestLambdaFunctionClient lambdaClient =
-            (TestLambdaFunctionClient) decisionContext.getLambdaFunctionClient();
-        lambdaClient.setInvoker(invoker);
+
+        CurrentDecisionContext.set(new TestDecisionContext(decisionContext.getActivityClient(), decisionContext.getWorkflowClient(),
+            decisionContext.getWorkflowClock(), decisionContext.getWorkflowContext(), client));
+
     }
 
     public static LambdaMock lambdaMock(String name){
-        return new LambdaMock(name);
+        LambdaMock mock = new LambdaMock(name);
+        registerMock(mock);
+        return mock;
     }
 
-    public static void registerMock(LambdaMock mock){
+    private static void registerMock(LambdaMock mock){
         if (invoker == null){
             // TODO
             new RuntimeException("Invoker not initialized!");
@@ -44,13 +57,35 @@ public class Helpers {
     }
 
     public static void verifyInvokedWith(LambdaMock mock, String request){
-        // TODO
-        throw new RuntimeException("Not implemented");
+        new Task(mock.getInvocation()) {
+
+            @Override
+            protected void doExecute() throws Throwable {
+                Assert.assertEquals(String.format("Expected invocation with %s not logged", request),
+                    request, mock.getInvocation().get().getRequest());
+            }
+        };
+    }
+
+    public static void verifyInvokedWith(LambdaMock mock, JsonNode request){
+        ObjectMapper mapper = new ObjectMapper();
+        new Task(mock.getInvocation()) {
+
+            @Override
+            protected void doExecute() throws Throwable {
+                Assert.assertEquals(String.format("Expected invocation with %s not logged", request),
+                    request, mapper.readTree(mock.getInvocation().get().getRequest()));
+            }
+        };
     }
 
     public static class Stubbing {
 
         private String response;
+        private Answer answer;
+
+        private DecisionContextProvider contextProvider = new DecisionContextProviderImpl();
+        private WorkflowClock clock = contextProvider.getDecisionContext().getWorkflowClock();
 
         private Stubbing(){
         }
@@ -59,9 +94,12 @@ public class Helpers {
             this.response = response;
         }
 
+        public void thenAnswer(Answer answer){
+            this.answer = answer;
+        }
+
         public void thenSerializeAndReturn(Object o){
-            // TODO
-            throw new RuntimeException("Not implemented!");
+            this.response = Jackson.toJsonString(o);
         }
 
         public void thenFail(){
@@ -69,8 +107,24 @@ public class Helpers {
             throw new RuntimeException("Not implemented!");
         }
 
-        protected String getResponse(){
-            return response;
+        protected Promise<String> getResponse(){
+            Settable<String> ret = new Settable<>();
+
+            // need to have a delay because otherwise task is being executed synchronously
+            // and we want to simulate async call to lambda
+            Promise<Void> timer = clock.createTimer(1);
+            new Task(timer) {
+                @Override
+                protected void doExecute() throws Throwable {
+                    if (response != null){
+                        ret.set(response);
+                    } else if (answer != null){
+                        ret.set(answer.run());
+                    }
+                }
+            };
+
+            return ret;
         }
     }
 }
