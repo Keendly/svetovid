@@ -60,9 +60,9 @@ class DeliveryWorkflowClientImpl extends WorkflowClientBase implements DeliveryW
     	
 
     @Override
-    public void ebookGenerated(String ebookPath) { 
+    public void ebookGenerated(String generateResult) { 
         Object[] _input_ = new Object[1];
-        _input_[0] = ebookPath;
+        _input_[0] = generateResult;
         signalWorkflowExecution("ebookGenerated", _input_);
     }
 }

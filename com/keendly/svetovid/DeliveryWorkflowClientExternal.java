@@ -33,7 +33,7 @@ public interface DeliveryWorkflowClientExternal extends WorkflowClientExternal
     /**
      * Generated from {@link com.keendly.svetovid.DeliveryWorkflow#ebookGenerated}
      */
-    void ebookGenerated(String ebookPath);
+    void ebookGenerated(String generateResult);
 
     /**
      * Generated from {@link com.keendly.svetovid.DeliveryWorkflow#getState}

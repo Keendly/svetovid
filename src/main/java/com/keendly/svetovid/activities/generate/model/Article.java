@@ -4,9 +4,9 @@ import java.util.Date;
 
 public class Article {
 
-    private String url;
-    private String author;
-    private String title;
-    private String content;
-    private Date date;
+    public String url;
+    public String author;
+    public String title;
+    public String content;
+    public Date date;
 }

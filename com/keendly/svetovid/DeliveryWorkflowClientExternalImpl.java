@@ -35,9 +35,9 @@ class DeliveryWorkflowClientExternalImpl extends WorkflowClientExternalBase impl
     }
 
     @Override
-    public void ebookGenerated(String ebookPath) {
+    public void ebookGenerated(String generateResult) {
         Object[] _arguments_ = new Object[1];
-        _arguments_[0] = ebookPath;
+        _arguments_[0] = generateResult;
         dynamicWorkflowClient.signalWorkflowExecution("ebookGenerated", _arguments_);
     }
 

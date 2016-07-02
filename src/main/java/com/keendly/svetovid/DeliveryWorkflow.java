@@ -16,7 +16,7 @@ public interface DeliveryWorkflow {
     void deliver(String deliveryRequest) throws IOException;
 
     @Signal
-    void ebookGenerated(String ebookPath);
+    void ebookGenerated(String generateResult);
 
     @GetState
     String getState();

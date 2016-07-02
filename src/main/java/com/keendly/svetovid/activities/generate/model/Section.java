@@ -1,9 +1,10 @@
 package com.keendly.svetovid.activities.generate.model;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class Section {
 
-    private String title;
-    private List<Article> articles;
+    public String title;
+    public List<Article> articles = new ArrayList<>();
 }

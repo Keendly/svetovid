@@ -1,15 +1,23 @@
 package com.keendly.svetovid;
 
+import static com.keendly.svetovid.DeliveryWorkflowMapper.*;
+
 import com.amazonaws.services.simpleworkflow.flow.annotations.Asynchronous;
 import com.amazonaws.services.simpleworkflow.flow.core.Promise;
 import com.amazonaws.services.simpleworkflow.flow.core.Settable;
 import com.amazonaws.services.simpleworkflow.flow.core.TryCatch;
+import com.amazonaws.util.json.Jackson;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.keendly.svetovid.activities.extract.ExtractArticlesActivity;
 import com.keendly.svetovid.activities.extract.model.ExtractRequest;
 import com.keendly.svetovid.activities.extract.model.ExtractResult;
-import com.keendly.svetovid.model.DeliveryArticle;
-import com.keendly.svetovid.model.DeliveryItem;
+import com.keendly.svetovid.activities.generate.GenerateEbookActivity;
+import com.keendly.svetovid.activities.generate.model.GenerateResult;
+import com.keendly.svetovid.activities.generate.model.TriggerGenerateRequest;
+import com.keendly.svetovid.activities.send.SendEbookActivity;
+import com.keendly.svetovid.activities.send.model.SendRequest;
 import com.keendly.svetovid.model.DeliveryRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,13 +28,8 @@ import java.util.List;
 public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 
     private static final Logger LOG = LoggerFactory.getLogger(DeliveryWorkflowImpl.class);
-    private static final String BUCKET = "deliveries";
-    private static final String GENERATE_QUEUE_URL =
-        "https://sqs.eu-west-1.amazonaws.com/625416862388/generation-queue";
 
-//    private static AmazonSQSClient amazonSQSClient = new AmazonSQSClient();
-
-    private final Settable<String> ebookFile = new Settable<>();
+    private final Settable<String> generateResult = new Settable<>();
 
     private DeliveryState state;
 
@@ -35,141 +38,117 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
         setState(DeliveryState.STARTED);
 
         // map request string to delivery request object
-        DeliveryRequest request = convert(requestString);
+        DeliveryRequest request = deserializeDeliveryRequest(requestString);
 
         new TryCatch() {
             @Override
             protected void doTry() throws Throwable {
                 // extract articles
                 ExtractArticlesActivity extractArticlesActivity = new ExtractArticlesActivity();
-                Promise<List<ExtractResult>> results =
-                    extractArticlesActivity.invoke(mapToExtractRequests(request));
+                ExtractRequest extractRequest = mapDeliveryRequestToExtractArticlesRequest(request);
+                Promise<String> extractResults =
+                    extractArticlesActivity.invoke(Jackson.toJsonString(extractRequest));
 
-                setState(extractArticlesActivity.getCompletedState(), results);
+                // generate ebook
+                Promise<String> triggerGenerateResult =
+                    invokeTriggerGenerate(request, extractResults);
 
-                //
-                logAsync(results);
+                // send email
+                Promise<String> sendEmail =
+                    invokeSendEmail(request, generateResult);
+
+//
+//                // send email
+//                SendEbookActivity sendEbookActivity = new SendEbookActivity();
+//                Promise<SendResult> sendResult =
+//                    sendEbookActivity.invoke(
+//                        mapDeliveryRequestAndGenerateResultToSendRequestAsync(request, generateResult));
+//
+//                setState(sendEbookActivity.getCompletedState(), sendResult);
+//
+//                // update delivery
+//                UpdateDeliveryActivity updateDeliveryActivity = new UpdateDeliveryActivity();
+//                Promise<UpdateResult> updateResult =
+//                    updateDeliveryActivity.invoke(
+//                        mapDeliveryRequestAndSendResultToUpdateRequestAsync(request, sendResult));
+//
+//                setState(updateDeliveryActivity.getCompletedState(), updateResult);
             }
 
             @Override
             protected void doCatch(Throwable e) throws Throwable {
-                LOG.error("blabla", e);
+                LOG.error("Error during workflow execution", e);
+//                setState(DeliveryState.ERROR);
             }
         };
-
-        //
-//        triggerEbookGeneration(request, articlesPromise);
-//        state(State.GENERATION_TRIGGERED);
-//
-//        Promise<String> sendPromise = send(ebookFile, request.getEmail());
-//        state(State.SENT, sendPromise);
-//
-//        Promise<String> updatePromise = update(request, sendPromise);
-//        state(State.FINISHED, updatePromise);
-    }
-
-//    private Promise<String> runExtraction(ExtractArticlesActivity activity, DeliveryRequest deliveryRequest){
-//
-//        List<ExtractRequest> extractRequests = mapToExtractRequests(deliveryRequest);
-//        DecisionContextProvider decisionProvider = new DecisionContextProviderImpl();
-//        DecisionContext decisionContext = decisionProvider.getDecisionContext();
-//
-//        LambdaFunctionClient lambdaClient = decisionContext.getLambdaFunctionClient();
-//        return lambdaClient.scheduleLambdaFunction("veles", activity.mapInput(extractRequests));
-////        return activity.invoke(extractRequests);
-//    }
-//
-//    @Asynchronous
-//    private List<ExtractResult> mapExtractionResult(ExtractArticlesActivity activity, Promise<String> resultPromise)
-//        throws IOException {
-//        return activity.mapOutput(resultPromise.get());
-//    }
-
-    private ExtractRequest mapToExtractRequests(DeliveryRequest request){
-        ExtractRequest extractRequest = new ExtractRequest();
-
-        for (DeliveryItem item : request.items){
-            for (DeliveryArticle article : item.articles){
-                ExtractRequest.ExtractRequestItem requestItem = new ExtractRequest.ExtractRequestItem();
-                requestItem.url = article.url;
-                requestItem.withImages = item.withImages;
-                requestItem.withMetadata = Boolean.FALSE;
-                extractRequest.requests.add(requestItem);
-            }
-        }
-        return extractRequest;
     }
 
     @Asynchronous
-    public void logAsync(Promise<List<ExtractResult>> result){
-        for (ExtractResult res : result.get()){
-            LOG.debug(res.url);
-            LOG.debug(res.text);
-        }
+    public Promise<String> invokeTriggerGenerate(DeliveryRequest deliveryRequest, Promise<String> extractResults){
+        GenerateEbookActivity generateEbookActivity = new GenerateEbookActivity();
+        LOG.trace("Got extract results {}", extractResults.get());
+
+        JavaType type = constructListType(ExtractResult.class);
+        TriggerGenerateRequest triggerGenerateRequest =
+            mapDeliveryRequestAndExtractResultToGenerateRequest(deliveryRequest,
+                mapToOutput(extractResults.get(), type));
+
+        String request = Jackson.toJsonString(triggerGenerateRequest);
+        LOG.trace("Triggering generate with {}", request);
+
+        Promise<String> triggerResponse =
+            generateEbookActivity.invoke(Jackson.toJsonString(triggerGenerateRequest));
+
+        return triggerResponse;
     }
 
-    private DeliveryRequest convert(String s) throws IOException {
+    @Asynchronous
+    public Promise<String> invokeSendEmail(DeliveryRequest deliveryRequest, Promise<String> generateResult){
+        SendEbookActivity sendEbookActivity = new SendEbookActivity();
+        LOG.trace("Got generate results {}", generateResult.get());
+
+        SendRequest sendRequest = mapDeliveryRequestAndGenerateResultToSendRequest(deliveryRequest,
+            mapToOutput(generateResult.get(), GenerateResult.class));
+
+        String request = Jackson.toJsonString(sendRequest);
+        LOG.trace("Triggering send with {}", request);
+
+        return sendEbookActivity.invoke(Jackson.toJsonString(sendRequest));
+    }
+
+//    @Asynchronous
+//    public TriggerGenerateRequest mapDeliveryRequestAndExtractResultToGenerateRequestAsync
+//        (DeliveryRequest request, Promise<String> extractResults){
+//
+//
+//        LOG.error( extractResults.isReady() + "");
+//        LOG.error("kakademona");
+//        return mapDeliveryRequestAndExtractResultToGenerateRequest(request, extractResults.get());
+//    }
+//
+//    @Asynchronous
+//    public SendRequest mapDeliveryRequestAndGenerateResultToSendRequestAsync
+//        (DeliveryRequest request, Promise<GenerateResult> generateResult){
+//
+//        return mapDeliveryRequestAndGenerateResultToSendRequest(request, generateResult.get());
+//    }
+//
+//    @Asynchronous
+//    public UpdateRequest mapDeliveryRequestAndSendResultToUpdateRequestAsync
+//        (DeliveryRequest request, Promise<SendResult> sendResult){
+//
+//        return mapDeliveryRequestAndSendResultToUpdateRequest(request, sendResult.get());
+//    }
+
+    private DeliveryRequest deserializeDeliveryRequest(String s) throws IOException {
         ObjectMapper mapper = new ObjectMapper();
         return mapper.readValue(s.getBytes("UTF8"), DeliveryRequest.class);
     }
 
-//    /**
-//     * Triggers ebook generation
-//     */
-//    @Asynchronous
-//    public void triggerEbookGeneration(DeliveryRequest request, Promise<String> articles) throws IOException {
-//        Book book = toBook(request, articles);
-//        SendMessageRequest sendMessageRequest = SQSUtils.message(Jackson.toJsonString(book),
-//            new SQSUtils.Attribute("content", "inline"));
-//        sendMessageRequest.setQueueUrl(GENERATE_QUEUE_URL);
-//
-//        amazonSQSClient.sendMessage(sendMessageRequest);
-//    }
-//
-//    private Book toBook(DeliveryRequest request, Promise<String> articles) throws IOException {
-//        List<ExtractResult> extractResults = fromJson(articles.get());
-//        return BookMapper.toBook(request, extractResults);
-//    }
-
     @Override
-    public void ebookGenerated(String key) {
-        ebookFile.set(key);
+    public void ebookGenerated(String generateResult) {
+        this.generateResult.set(generateResult);
     }
-
-//    /**
-//     * Sends generated ebook by email
-//     */
-//    @Asynchronous
-//    public Promise<String> send(Promise<String> ebookFile, String email) {
-//        SendRequest request = new SendRequest();
-//        request.setMessage("Enjoy!");
-//        request.setRecipient(email);
-//        request.setSender("kindle@keendly.com");
-//        request.setSubject("Keendly Delivery");
-//        Attachment attachment = new Attachment();
-//        attachment.setBucket(BUCKET);
-//        attachment.setKey(ebookFile.get());
-//        request.setAttachment(attachment);
-//
-//        return callLambda("perun_java", Jackson.toJsonString(request));
-//    }
-//
-//    /**
-//     * Updates delivery with send date
-//     */
-//    @Asynchronous
-//    public Promise<String> update(DeliveryRequest deliveryRequest, Promise<String> waitFor) {
-//        SendResult sendResult = Jackson.fromJsonString(waitFor.get(), SendResult.class);
-//
-//        UpdateRequest request = new UpdateRequest();
-//        request.setDeliveryId(deliveryRequest.getId());
-//        request.setUserId(deliveryRequest.getUserId());
-//        request.setDate(sendResult.getDate());
-//        request.setStatus(sendResult.getStatus().name());
-//        request.setErrorDescription(sendResult.getErrorDescription());
-//
-//        return callLambda("bylun", Jackson.toJsonString(request));
-//    }
 
     @Override
     public String getState() {
@@ -185,4 +164,31 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
         this.state = state;
     }
 
+    protected <T> T mapToOutput(String s, Class<T> clazz){
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        try {
+            return mapper.readValue(s.getBytes(), clazz);
+        } catch (IOException e){
+            throw new RuntimeException(e);
+        }
+    }
+
+    protected <T> List<T> mapToOutput(String s, JavaType type){
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        try {
+            return mapper.readValue(s.getBytes(), type);
+        } catch (IOException e){
+            throw new RuntimeException(e);
+        }
+    }
+
+    private <T> JavaType constructListType(Class<T> clazz){
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        JavaType type = mapper.getTypeFactory().
+            constructCollectionType(List.class, clazz);
+        return type;
+    }
 }

@@ -15,6 +15,7 @@
         <lombok.version>1.16.8</lombok.version>
         <aws-sdk.version>1.10.77</aws-sdk.version>
         <aspectj.version>1.8.7</aspectj.version>
+        <minimal-json.version>0.9.4</minimal-json.version>
     </properties>
     <build>
         <plugins>
@@ -128,6 +129,12 @@
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.eclipsesource.minimal-json</groupId>
+            <artifactId>minimal-json</artifactId>
+            <version>${minimal-json.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

@@ -54,6 +54,6 @@ public interface DeliveryWorkflowClient extends WorkflowClient
     /**
      * Generated from {@link com.keendly.svetovid.DeliveryWorkflow#ebookGenerated}
      */
-    void ebookGenerated(String ebookPath);
+    void ebookGenerated(String generateResult);
 
 }
