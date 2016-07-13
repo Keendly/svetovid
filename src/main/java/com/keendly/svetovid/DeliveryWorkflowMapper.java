@@ -1,11 +1,13 @@
 package com.keendly.svetovid;
 
+import java.util.Date;
+import java.util.List;
+
 import com.keendly.svetovid.activities.extract.model.ExtractRequest;
 import com.keendly.svetovid.activities.extract.model.ExtractResult;
 import com.keendly.svetovid.activities.generate.model.Article;
-import com.keendly.svetovid.activities.generate.model.GenerateResult;
+import com.keendly.svetovid.activities.generate.model.Book;
 import com.keendly.svetovid.activities.generate.model.Section;
-import com.keendly.svetovid.activities.generate.model.TriggerGenerateRequest;
 import com.keendly.svetovid.activities.send.model.Attachment;
 import com.keendly.svetovid.activities.send.model.SendRequest;
 import com.keendly.svetovid.activities.send.model.SendResult;
@@ -13,9 +15,6 @@ import com.keendly.svetovid.activities.update.model.UpdateRequest;
 import com.keendly.svetovid.model.DeliveryArticle;
 import com.keendly.svetovid.model.DeliveryItem;
 import com.keendly.svetovid.model.DeliveryRequest;
-
-import java.util.Date;
-import java.util.List;
 
 public class DeliveryWorkflowMapper {
 
@@ -34,9 +33,9 @@ public class DeliveryWorkflowMapper {
         return extractRequest;
     }
 
-    public static TriggerGenerateRequest mapDeliveryRequestAndExtractResultToGenerateRequest
+    public static Book mapDeliveryRequestAndExtractResultToBook
         (DeliveryRequest deliveryRequest, List<ExtractResult> articles){
-        TriggerGenerateRequest book = new TriggerGenerateRequest();
+        Book book = new Book();
         book.title = "Keendly Feeds";
         book.creator = "Keendly";
         book.subject = "News";
@@ -72,7 +71,7 @@ public class DeliveryWorkflowMapper {
     }
 
     public static SendRequest mapDeliveryRequestAndGenerateResultToSendRequest
-        (DeliveryRequest deliveryRequest, GenerateResult generateResult){
+        (DeliveryRequest deliveryRequest, String generateResult){
 
         SendRequest request = new SendRequest();
         request.message = "Enjoy!";
@@ -80,8 +79,8 @@ public class DeliveryWorkflowMapper {
         request.sender = "kindle@keendly.com";
         request.subject = "Keendly Delivery";
         Attachment attachment = new Attachment();
-        attachment.bucket = "deliveries";
-        attachment.key = generateResult.ebookPath;
+        attachment.bucket = "keendly";
+        attachment.key = generateResult;
         request.attachment = attachment;
 
         return request;

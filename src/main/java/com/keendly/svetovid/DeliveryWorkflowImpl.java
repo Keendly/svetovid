@@ -1,7 +1,11 @@
 package com.keendly.svetovid;
 
-import static com.keendly.svetovid.DeliveryWorkflowMapper.*;
+import java.io.IOException;
+import java.util.List;
 
+import com.amazonaws.services.simpleworkflow.flow.DecisionContext;
+import com.amazonaws.services.simpleworkflow.flow.DecisionContextProvider;
+import com.amazonaws.services.simpleworkflow.flow.DecisionContextProviderImpl;
 import com.amazonaws.services.simpleworkflow.flow.annotations.Asynchronous;
 import com.amazonaws.services.simpleworkflow.flow.core.Promise;
 import com.amazonaws.services.simpleworkflow.flow.core.Settable;
@@ -14,7 +18,7 @@ import com.keendly.svetovid.activities.extract.ExtractArticlesActivity;
 import com.keendly.svetovid.activities.extract.model.ExtractRequest;
 import com.keendly.svetovid.activities.extract.model.ExtractResult;
 import com.keendly.svetovid.activities.generate.GenerateEbookActivity;
-import com.keendly.svetovid.activities.generate.model.GenerateResult;
+import com.keendly.svetovid.activities.generate.model.Book;
 import com.keendly.svetovid.activities.generate.model.TriggerGenerateRequest;
 import com.keendly.svetovid.activities.send.SendEbookActivity;
 import com.keendly.svetovid.activities.send.model.SendRequest;
@@ -22,8 +26,7 @@ import com.keendly.svetovid.model.DeliveryRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.util.List;
+import static com.keendly.svetovid.DeliveryWorkflowMapper.*;
 
 public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 
@@ -89,17 +92,38 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
         LOG.trace("Got extract results {}", extractResults.get());
 
         JavaType type = constructListType(ExtractResult.class);
-        TriggerGenerateRequest triggerGenerateRequest =
-            mapDeliveryRequestAndExtractResultToGenerateRequest(deliveryRequest,
+        Book book =
+            mapDeliveryRequestAndExtractResultToBook(deliveryRequest,
                 mapToOutput(extractResults.get(), type));
+
+        TriggerGenerateRequest triggerGenerateRequest = new TriggerGenerateRequest();
+        triggerGenerateRequest.content = book;
+        triggerGenerateRequest.runId = getRunId();
+        triggerGenerateRequest.workflowId = getWorkFlowId();
 
         String request = Jackson.toJsonString(triggerGenerateRequest);
         LOG.trace("Triggering generate with {}", request);
 
         Promise<String> triggerResponse =
-            generateEbookActivity.invoke(Jackson.toJsonString(triggerGenerateRequest));
+            generateEbookActivity.invoke(Jackson.toJsonString(request));
 
         return triggerResponse;
+    }
+
+    private String getWorkFlowId(){
+        DecisionContext context = getContext();
+        return context.getWorkflowContext().getWorkflowExecution().getWorkflowId();
+    }
+
+    private String getRunId(){
+        DecisionContext context = getContext();
+        return context.getWorkflowContext().getWorkflowExecution().getRunId();
+    }
+
+    private DecisionContext getContext(){
+        DecisionContextProvider contextProvider
+            = new DecisionContextProviderImpl();
+        return contextProvider.getDecisionContext();
     }
 
     @Asynchronous
@@ -107,8 +131,12 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
         SendEbookActivity sendEbookActivity = new SendEbookActivity();
         LOG.trace("Got generate results {}", generateResult.get());
 
+        if (generateResult.get().contains("ERROR")){
+            throw new RuntimeException("Error generating ebook");
+        }
+
         SendRequest sendRequest = mapDeliveryRequestAndGenerateResultToSendRequest(deliveryRequest,
-            mapToOutput(generateResult.get(), GenerateResult.class));
+            generateResult.get());
 
         String request = Jackson.toJsonString(sendRequest);
         LOG.trace("Triggering send with {}", request);
@@ -117,13 +145,13 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
     }
 
 //    @Asynchronous
-//    public TriggerGenerateRequest mapDeliveryRequestAndExtractResultToGenerateRequestAsync
+//    public Book mapDeliveryRequestAndExtractResultToGenerateRequestAsync
 //        (DeliveryRequest request, Promise<String> extractResults){
 //
 //
 //        LOG.error( extractResults.isReady() + "");
 //        LOG.error("kakademona");
-//        return mapDeliveryRequestAndExtractResultToGenerateRequest(request, extractResults.get());
+//        return mapDeliveryRequestAndExtractResultToBook(request, extractResults.get());
 //    }
 //
 //    @Asynchronous
@@ -146,7 +174,7 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
     }
 
     @Override
-    public void ebookGenerated(String generateResult) {
+    public void generationFinished(String generateResult) {
         this.generateResult.set(generateResult);
     }
 

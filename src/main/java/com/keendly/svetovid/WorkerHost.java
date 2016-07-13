@@ -1,13 +1,15 @@
 package com.keendly.svetovid;
 
+import java.io.IOException;
+import java.util.concurrent.TimeUnit;
+
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.simpleworkflow.AmazonSimpleWorkflow;
 import com.amazonaws.services.simpleworkflow.AmazonSimpleWorkflowClient;
 import com.amazonaws.services.simpleworkflow.flow.WorkflowWorker;
-
-import java.io.IOException;
-import java.util.concurrent.TimeUnit;
 
 public class WorkerHost {
 
@@ -15,7 +17,7 @@ public class WorkerHost {
 
     public static void main(String[] args) throws Exception {
         AmazonSimpleWorkflow swfService = createSWFClient();
-        String domain = "sample";
+        String domain = "keendly";
 
         final WorkflowWorker worker = new WorkflowWorker(swfService, domain, DECISION_TASK_LIST);
         worker.addWorkflowImplementationType(DeliveryWorkflowImpl.class);
@@ -51,9 +53,14 @@ public class WorkerHost {
 
     public static AmazonSimpleWorkflow createSWFClient() {
 //        AWSCredentials awsCredentials = new BasicAWSCredentials();
-        AmazonSimpleWorkflow client = new AmazonSimpleWorkflowClient();
+        AmazonSimpleWorkflow client = new AmazonSimpleWorkflowClient(getCredentials());
         client.setRegion(Region.getRegion(Regions.EU_WEST_1));
 //        client.setEndpoint(this.swfServiceUrl);
         return client;
+    }
+
+    private static AWSCredentialsProvider getCredentials(){
+        ProfileCredentialsProvider credentialsProvider = new ProfileCredentialsProvider("keendly");
+        return credentialsProvider;
     }
 }

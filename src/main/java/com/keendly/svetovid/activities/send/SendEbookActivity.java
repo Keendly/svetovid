@@ -14,6 +14,6 @@ public class SendEbookActivity extends LambdaActivity<SendRequest, SendResult> {
 
     @Override
     protected String getLambdaName() {
-        return "perun_java";
+        return "perun_swf";
     }
 }
