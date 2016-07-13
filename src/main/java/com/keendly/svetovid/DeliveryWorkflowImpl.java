@@ -60,15 +60,6 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
                 Promise<String> sendEmail =
                     invokeSendEmail(request, generateResult);
 
-//
-//                // send email
-//                SendEbookActivity sendEbookActivity = new SendEbookActivity();
-//                Promise<SendResult> sendResult =
-//                    sendEbookActivity.invoke(
-//                        mapDeliveryRequestAndGenerateResultToSendRequestAsync(request, generateResult));
-//
-//                setState(sendEbookActivity.getCompletedState(), sendResult);
-//
 //                // update delivery
 //                UpdateDeliveryActivity updateDeliveryActivity = new UpdateDeliveryActivity();
 //                Promise<UpdateResult> updateResult =
