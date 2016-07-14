@@ -49,9 +49,6 @@
                         <source>
                             <basedir>src/main/java</basedir>
                         </source>
-                        <source>
-                            <basedir>src/main/java</basedir>
-                        </source>
                     </sources>
                 </configuration>
                 <executions>
@@ -87,7 +84,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.keendly.svetovid.WorkerHost</mainClass>
+                            <mainClass>com.keendly.svetovid.Decider</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

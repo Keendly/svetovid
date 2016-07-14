@@ -11,7 +11,7 @@ import com.amazonaws.services.simpleworkflow.flow.WorkflowWorker;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 
-public class WorkerHost {
+public class Decider {
 
     private static final String DECISION_TASK_LIST = "HelloWorldWorkflow"; // no idea what is this :D
     private static final String DOMAIN = "keendly";
