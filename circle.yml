@@ -4,10 +4,6 @@ machine:
   services:
     - docker
 
-test:
-  override:
-    - echo "skipping tests!!!"
-
 deployment:
   master:
     branch: master
