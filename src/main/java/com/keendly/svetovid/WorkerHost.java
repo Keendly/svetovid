@@ -13,7 +13,7 @@ import com.beust.jcommander.Parameter;
 
 public class WorkerHost {
 
-    private static final String DECISION_TASK_LIST = "DeliveryWorkflow"; // no idea what is this :D
+    private static final String DECISION_TASK_LIST = "HelloWorldWorkflow"; // no idea what is this :D
     private static final String DOMAIN = "keendly";
 
     public static void main(String[] args) throws Exception {

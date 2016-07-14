@@ -1,5 +1,10 @@
 package com.keendly.svetovid;
 
+import com.amazonaws.services.simpleworkflow.flow.DecisionContextProvider;
+import com.amazonaws.services.simpleworkflow.flow.DecisionContextProviderImpl;
+import com.amazonaws.services.simpleworkflow.flow.WorkflowClock;
+import com.amazonaws.services.simpleworkflow.flow.core.Promise;
+import com.amazonaws.services.simpleworkflow.flow.core.Task;
 import com.amazonaws.services.simpleworkflow.flow.junit.FlowBlockJUnit4ClassRunner;
 import com.amazonaws.services.simpleworkflow.flow.junit.WorkflowTest;
 import com.eclipsesource.json.JsonArray;
@@ -62,14 +67,25 @@ public class DeliveryWorkflowTest {
                     .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
                     .add("text", "this is the article text extracted from website"));
 
+        String generateFinishedCallback
+            = "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi";
+
 
         LambdaMock veles = lambdaMock("veles");
-        LambdaMock jindleTrigger = lambdaMock("jariloTrigger");
+        LambdaMock jariloTrigger = lambdaMock("jariloTrigger");
+        LambdaMock perun = lambdaMock("perun_swf");
 
-        // when
         whenInvoked(veles).thenReturn(extractResults);
 
+        // when
         workflow.deliver(deliveryRequest.toString());
+
+        new Task(delay(1)) {
+            @Override
+            protected void doExecute() throws Throwable {
+                workflow.generationFinished(generateFinishedCallback);
+            }
+        };
 
         // then
         verifyInvokedWith(veles, object().add("requests", array()
@@ -77,9 +93,45 @@ public class DeliveryWorkflowTest {
                 .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
                 .add("withImages", TRUE)
                 .add("withMetadata", FALSE))));
+
+        verifyInvokedWith(jariloTrigger, object()
+            .add("content", object()
+                .add("title", "Keendly Feeds")
+                .add("language", "en-GB")
+                .add("creator", "Keendly")
+                .add("subject", "News")
+                .add("sections", array()
+                    .add(object()
+                        .add("title", "FCBarca")
+                        .add("articles", array()
+                            .add(object()
+                                .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
+                                .add("author", "Dariusz Maruszczak")
+                                .add("title", "Pedro: Nie pomyliłem się, odchodząc z Barcelony")
+                                .add("content", "this is the article text extracted from website")
+                                .add("date", 1465584508000L)))))));
+
+        verifyInvokedWith(perun, object()
+            .add("subject", "Keendly Delivery")
+            .add("sender", "kindle@keendly.com")
+            .add("recipient", "contact@keendly.com")
+            .add("message", "Enjoy!")
+            .add("attachment", object()
+                .add("bucket", "keendly")
+                .add("key", generateFinishedCallback)));
     }
 
     private JsonArray array(){
         return new JsonArray();
+    }
+
+    private static Promise<Void> delay(int seconds){
+
+        DecisionContextProvider contextProvider
+            = new DecisionContextProviderImpl();
+
+        WorkflowClock clock
+            = contextProvider.getDecisionContext().getWorkflowClock();
+        return clock.createTimer(seconds);
     }
 }

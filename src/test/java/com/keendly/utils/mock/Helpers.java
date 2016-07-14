@@ -11,12 +11,11 @@ import com.amazonaws.services.simpleworkflow.flow.core.TryCatch;
 import com.amazonaws.services.simpleworkflow.flow.test.TestDecisionContext;
 import com.amazonaws.services.simpleworkflow.flow.worker.CurrentDecisionContext;
 import com.amazonaws.util.json.Jackson;
-import com.eclipsesource.json.Json;
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
-import org.junit.Assert;
+import org.skyscreamer.jsonassert.JSONAssert;
 
 public class Helpers {
 
@@ -48,8 +47,7 @@ public class Helpers {
 
                     @Override
                     protected void doExecute() throws Throwable {
-                        Assert.assertEquals(String.format("Expected invocation with %s not logged", request),
-                            request, Json.parse(mock.getInvocation().get().getRequest()));
+                        JSONAssert.assertEquals(request.toString(), mock.getInvocation().get().getRequest(), false);
                     }
                 };
             }

@@ -95,8 +95,12 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
         String request = Jackson.toJsonString(triggerGenerateRequest);
         LOG.trace("Triggering generate with {}", request);
 
+//        Promise<String> triggerResponse =
+//            generateEbookActivity.invoke(Jackson.toJsonString(request));
+
         Promise<String> triggerResponse =
-            generateEbookActivity.invoke(Jackson.toJsonString(request));
+                    generateEbookActivity.invoke(Jackson.toJsonString(triggerGenerateRequest));
+
 
         return triggerResponse;
     }
