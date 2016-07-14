@@ -1,0 +1,19 @@
+machine:
+  java:
+    version: oraclejdk8
+  services:
+    - docker
+
+test:
+  override:
+    - echo "skipping tests!!!"
+
+deployment:
+  master:
+    branch: master
+    commands:
+      - mvn package -DskipTests
+      - docker build -t svetovid .
+      - aws ecr get-login --region eu-west-1 | sh
+      - docker tag svetovid:latest 625416862388.dkr.ecr.eu-west-1.amazonaws.com/svetovid:latest
+      - docker push 625416862388.dkr.ecr.eu-west-1.amazonaws.com/svetovid:latest

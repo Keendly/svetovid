@@ -16,6 +16,7 @@
         <aws-sdk.version>1.10.77</aws-sdk.version>
         <aspectj.version>1.8.7</aspectj.version>
         <minimal-json.version>0.9.4</minimal-json.version>
+        <jcommander.version>1.48</jcommander.version>
     </properties>
     <build>
         <plugins>
@@ -62,7 +63,6 @@
                 </executions>
             </plugin>
 
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -107,6 +107,12 @@
             <groupId>org.aspectj</groupId>
             <artifactId>aspectjrt</artifactId>
             <version>${aspectj.version}</version>
+        </dependency>
+        <!-- JCommander -->
+        <dependency>
+            <groupId>com.beust</groupId>
+            <artifactId>jcommander</artifactId>
+            <version>${jcommander.version}</version>
         </dependency>
         <!-- Logging -->
         <dependency>

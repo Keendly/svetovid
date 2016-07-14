@@ -1,8 +1,5 @@
 package com.keendly.svetovid;
 
-import static com.eclipsesource.json.Json.*;
-import static com.keendly.utils.mock.Helpers.*;
-
 import com.amazonaws.services.simpleworkflow.flow.junit.FlowBlockJUnit4ClassRunner;
 import com.amazonaws.services.simpleworkflow.flow.junit.WorkflowTest;
 import com.eclipsesource.json.JsonArray;
@@ -12,6 +9,9 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import static com.eclipsesource.json.Json.*;
+import static com.keendly.utils.mock.Helpers.*;
 
 @RunWith(FlowBlockJUnit4ClassRunner.class)
 public class DeliveryWorkflowTest {
@@ -64,7 +64,7 @@ public class DeliveryWorkflowTest {
 
 
         LambdaMock veles = lambdaMock("veles");
-        LambdaMock jindleTrigger = lambdaMock("jindle_trigger");
+        LambdaMock jindleTrigger = lambdaMock("jariloTrigger");
 
         // when
         whenInvoked(veles).thenReturn(extractResults);
