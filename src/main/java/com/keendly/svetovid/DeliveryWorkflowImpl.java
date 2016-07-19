@@ -1,7 +1,6 @@
 package com.keendly.svetovid;
 
-import java.io.IOException;
-import java.util.List;
+import static com.keendly.svetovid.DeliveryWorkflowMapper.*;
 
 import com.amazonaws.services.simpleworkflow.flow.DecisionContext;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProvider;
@@ -26,7 +25,8 @@ import com.keendly.svetovid.model.DeliveryRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.keendly.svetovid.DeliveryWorkflowMapper.*;
+import java.io.IOException;
+import java.util.List;
 
 public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 
@@ -72,6 +72,7 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
             @Override
             protected void doCatch(Throwable e) throws Throwable {
                 LOG.error("Error during workflow execution", e);
+                throw e;
 //                setState(DeliveryState.ERROR);
             }
         };
