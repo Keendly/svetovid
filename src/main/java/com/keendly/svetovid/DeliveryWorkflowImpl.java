@@ -166,6 +166,7 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 
     private DeliveryRequest deserializeDeliveryRequest(String s) throws IOException {
         ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         return mapper.readValue(s.getBytes("UTF8"), DeliveryRequest.class);
     }
 

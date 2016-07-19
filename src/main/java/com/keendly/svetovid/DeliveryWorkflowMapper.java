@@ -1,8 +1,5 @@
 package com.keendly.svetovid;
 
-import java.util.Date;
-import java.util.List;
-
 import com.keendly.svetovid.activities.extract.model.ExtractRequest;
 import com.keendly.svetovid.activities.extract.model.ExtractResult;
 import com.keendly.svetovid.activities.generate.model.Article;
@@ -16,6 +13,9 @@ import com.keendly.svetovid.model.DeliveryArticle;
 import com.keendly.svetovid.model.DeliveryItem;
 import com.keendly.svetovid.model.DeliveryRequest;
 
+import java.util.Date;
+import java.util.List;
+
 public class DeliveryWorkflowMapper {
 
     public static ExtractRequest mapDeliveryRequestToExtractArticlesRequest(DeliveryRequest request){
@@ -25,7 +25,7 @@ public class DeliveryWorkflowMapper {
             for (DeliveryArticle article : item.articles){
                 ExtractRequest.ExtractRequestItem requestItem = new ExtractRequest.ExtractRequestItem();
                 requestItem.url = article.url;
-                requestItem.withImages = item.withImages;
+                requestItem.withImages = item.includeImages;
                 requestItem.withMetadata = Boolean.FALSE;
                 extractRequest.requests.add(requestItem);
             }

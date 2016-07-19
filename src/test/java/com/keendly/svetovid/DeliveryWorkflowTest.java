@@ -1,5 +1,8 @@
 package com.keendly.svetovid;
 
+import static com.eclipsesource.json.Json.*;
+import static com.keendly.utils.mock.Helpers.*;
+
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProvider;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProviderImpl;
 import com.amazonaws.services.simpleworkflow.flow.WorkflowClock;
@@ -14,9 +17,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import static com.eclipsesource.json.Json.*;
-import static com.keendly.utils.mock.Helpers.*;
 
 @RunWith(FlowBlockJUnit4ClassRunner.class)
 public class DeliveryWorkflowTest {
@@ -50,7 +50,7 @@ public class DeliveryWorkflowTest {
                 .add(object()
                     .add("feedId", "feed/http://www.fcbarca.com/feed")
                     .add("title", "FCBarca")
-                    .add("withImages", TRUE)
+                    .add("includeImages", TRUE)
                     .add("fullArticle", TRUE)
                     .add("markAsRead", TRUE)
                     .add("articles", array()

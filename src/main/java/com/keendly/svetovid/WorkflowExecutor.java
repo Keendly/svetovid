@@ -1,11 +1,5 @@
 package com.keendly.svetovid;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
-
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.regions.Region;
@@ -22,6 +16,12 @@ import com.amazonaws.util.json.Jackson;
 import com.keendly.svetovid.model.DeliveryArticle;
 import com.keendly.svetovid.model.DeliveryItem;
 import com.keendly.svetovid.model.DeliveryRequest;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
 
 public class WorkflowExecutor {
 
@@ -59,7 +59,7 @@ public class WorkflowExecutor {
     }
 
     public static AmazonSimpleWorkflow getSWFClient() {
-        AmazonSimpleWorkflow client = new AmazonSimpleWorkflowClient(getCredentials());
+        AmazonSimpleWorkflow client = new AmazonSimpleWorkflowClient();
         client.setRegion(Region.getRegion(Regions.EU_WEST_1));
         return client;
     }
@@ -81,7 +81,7 @@ public class WorkflowExecutor {
         item.articles  = Collections.singletonList(article);
         item.title = "Section title";
 
-        item.withImages = Boolean.TRUE;
+        item.includeImages = Boolean.TRUE;
         request.items = Collections.singletonList(item);
         request.email = "moomeen@gmail.com";
 

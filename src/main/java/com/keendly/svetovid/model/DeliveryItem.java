@@ -6,7 +6,7 @@ public class DeliveryItem {
 
     public String feedId;
     public String title;
-    public Boolean withImages;
+    public Boolean includeImages;
     public Boolean fullArticle;
     public Boolean markAsRead;
 
