@@ -1,6 +1,7 @@
 package com.keendly.svetovid;
 
-import static com.keendly.svetovid.DeliveryWorkflowMapper.*;
+import java.io.IOException;
+import java.util.List;
 
 import com.amazonaws.services.simpleworkflow.flow.DecisionContext;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProvider;
@@ -25,8 +26,7 @@ import com.keendly.svetovid.model.DeliveryRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.util.List;
+import static com.keendly.svetovid.DeliveryWorkflowMapper.*;
 
 public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 
@@ -49,6 +49,7 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
                 // extract articles
                 ExtractArticlesActivity extractArticlesActivity = new ExtractArticlesActivity();
                 ExtractRequest extractRequest = mapDeliveryRequestToExtractArticlesRequest(request);
+
                 Promise<String> extractResults =
                     extractArticlesActivity.invoke(Jackson.toJsonString(extractRequest));
 

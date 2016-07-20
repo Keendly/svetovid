@@ -12,16 +12,23 @@ import com.keendly.svetovid.activities.update.model.UpdateRequest;
 import com.keendly.svetovid.model.DeliveryArticle;
 import com.keendly.svetovid.model.DeliveryItem;
 import com.keendly.svetovid.model.DeliveryRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Date;
 import java.util.List;
 
 public class DeliveryWorkflowMapper {
 
+    private static final Logger LOG = LoggerFactory.getLogger(DeliveryWorkflowImpl.class);
+
     public static ExtractRequest mapDeliveryRequestToExtractArticlesRequest(DeliveryRequest request){
         ExtractRequest extractRequest = new ExtractRequest();
 
         for (DeliveryItem item : request.items){
+            if (item.articles == null || item.articles.isEmpty()){
+                throw new RuntimeException("no articles found");
+            }
             for (DeliveryArticle article : item.articles){
                 ExtractRequest.ExtractRequestItem requestItem = new ExtractRequest.ExtractRequestItem();
                 requestItem.url = article.url;

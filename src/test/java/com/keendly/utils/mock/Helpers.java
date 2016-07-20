@@ -17,6 +17,8 @@ import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
 import org.skyscreamer.jsonassert.JSONAssert;
 
+import static org.junit.Assert.*;
+
 public class Helpers {
 
     private static MockedLambdaFunctionInvoker invoker;
@@ -50,6 +52,20 @@ public class Helpers {
                         JSONAssert.assertEquals(request.toString(), mock.getInvocation().get().getRequest(), false);
                     }
                 };
+            }
+
+            @Override
+            protected void doCatch(Throwable e) throws Throwable {
+                throw e;
+            }
+        };
+    }
+
+    public static void verifyNotInvoked(LambdaMock mock){
+        new TryCatch() {
+            @Override
+            protected void doTry() throws Throwable {
+                assertFalse(mock.getInvocation().isReady());
             }
 
             @Override
