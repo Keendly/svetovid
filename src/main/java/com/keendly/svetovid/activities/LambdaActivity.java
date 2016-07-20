@@ -1,5 +1,8 @@
 package com.keendly.svetovid.activities;
 
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+
 import com.amazonaws.services.simpleworkflow.flow.DecisionContext;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProvider;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProviderImpl;
@@ -8,10 +11,11 @@ import com.amazonaws.services.simpleworkflow.flow.worker.LambdaFunctionClient;
 import com.keendly.svetovid.DeliveryState;
 import sun.reflect.generics.reflectiveObjects.ParameterizedTypeImpl;
 
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
-
 public abstract class LambdaActivity<T, S> {
+
+    // even though lambda itself has 5 minute timeout, it seems that sometimes SWF starts timer before the function
+    // execution actually begins
+    private static final int TIMEOUT = 10 * 60; // 10 minutes
 
     private ParameterizedTypeImpl outputType;
     private Class<S> outputClass;
@@ -39,7 +43,7 @@ public abstract class LambdaActivity<T, S> {
         DecisionContextProvider decisionProvider = new DecisionContextProviderImpl();
         DecisionContext decisionContext = decisionProvider.getDecisionContext();
         LambdaFunctionClient lambdaClient = decisionContext.getLambdaFunctionClient();
-        return lambdaClient.scheduleLambdaFunction(getLambdaName(), request);
+        return lambdaClient.scheduleLambdaFunction(getLambdaName(), request, TIMEOUT);
     }
 
 }
