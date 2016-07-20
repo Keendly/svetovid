@@ -9,7 +9,8 @@ import com.amazonaws.services.simpleworkflow.flow.annotations.Workflow;
 import com.amazonaws.services.simpleworkflow.flow.annotations.WorkflowRegistrationOptions;
 
 @Workflow
-@WorkflowRegistrationOptions(defaultExecutionStartToCloseTimeoutSeconds = 30 * 60) // 30 minutes
+@WorkflowRegistrationOptions(defaultExecutionStartToCloseTimeoutSeconds = 30 * 60, // 30 minutes
+                             defaultTaskStartToCloseTimeoutSeconds = 300) // 10 minutes
 public interface DeliveryWorkflow {
 
     @Execute(version = "1.0")
