@@ -13,10 +13,6 @@ import sun.reflect.generics.reflectiveObjects.ParameterizedTypeImpl;
 
 public abstract class LambdaActivity<T, S> {
 
-    // even though lambda itself has 5 minute timeout, it seems that sometimes SWF starts timer before the function
-    // execution actually begins
-    private static final int TIMEOUT = 10 * 60; // 10 minutes
-
     private ParameterizedTypeImpl outputType;
     private Class<S> outputClass;
 
@@ -43,7 +39,7 @@ public abstract class LambdaActivity<T, S> {
         DecisionContextProvider decisionProvider = new DecisionContextProviderImpl();
         DecisionContext decisionContext = decisionProvider.getDecisionContext();
         LambdaFunctionClient lambdaClient = decisionContext.getLambdaFunctionClient();
-        return lambdaClient.scheduleLambdaFunction(getLambdaName(), request, TIMEOUT);
+        return lambdaClient.scheduleLambdaFunction(getLambdaName(), request);
     }
 
 }
