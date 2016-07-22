@@ -25,10 +25,12 @@ public class DeliveryWorkflowMapper {
     public static ExtractRequest mapDeliveryRequestToExtractArticlesRequest(DeliveryRequest request){
         ExtractRequest extractRequest = new ExtractRequest();
 
+        boolean articlesFound = false;
         for (DeliveryItem item : request.items){
             if (item.articles == null || item.articles.isEmpty()){
-                throw new RuntimeException("no articles found");
+                continue;
             }
+            articlesFound = true;
             for (DeliveryArticle article : item.articles){
                 ExtractRequest.ExtractRequestItem requestItem = new ExtractRequest.ExtractRequestItem();
                 requestItem.url = article.url;
@@ -36,6 +38,10 @@ public class DeliveryWorkflowMapper {
                 requestItem.withMetadata = Boolean.FALSE;
                 extractRequest.requests.add(requestItem);
             }
+        }
+
+        if (!articlesFound){
+            throw new RuntimeException("no articles found");
         }
         return extractRequest;
     }
