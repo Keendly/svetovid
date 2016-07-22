@@ -3,6 +3,10 @@ package com.keendly.svetovid;
 import java.io.IOException;
 import java.util.List;
 
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.GetObjectRequest;
+import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContext;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProvider;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProviderImpl;
@@ -10,7 +14,9 @@ import com.amazonaws.services.simpleworkflow.flow.annotations.Asynchronous;
 import com.amazonaws.services.simpleworkflow.flow.core.Promise;
 import com.amazonaws.services.simpleworkflow.flow.core.Settable;
 import com.amazonaws.services.simpleworkflow.flow.core.TryCatch;
+import com.amazonaws.util.IOUtils;
 import com.amazonaws.util.json.Jackson;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -22,6 +28,7 @@ import com.keendly.svetovid.activities.generate.model.Book;
 import com.keendly.svetovid.activities.generate.model.TriggerGenerateRequest;
 import com.keendly.svetovid.activities.send.SendEbookActivity;
 import com.keendly.svetovid.activities.send.model.SendRequest;
+import com.keendly.svetovid.model.DeliveryItem;
 import com.keendly.svetovid.model.DeliveryRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +40,8 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
     private static final Logger LOG = LoggerFactory.getLogger(DeliveryWorkflowImpl.class);
 
     private final Settable<String> generateResult = new Settable<>();
+
+    private final AmazonS3 s3 = new AmazonS3Client();
 
     private DeliveryState state;
 
@@ -168,8 +177,22 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
     private DeliveryRequest deserializeDeliveryRequest(String s) throws IOException {
         ObjectMapper mapper = new ObjectMapper();
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        return mapper.readValue(s.getBytes("UTF8"), DeliveryRequest.class);
+        DeliveryRequest request = mapper.readValue(s.getBytes("UTF8"), DeliveryRequest.class);
+
+        if (request.s3Items != null){
+            GetObjectRequest getObjectRequest = new GetObjectRequest(request.s3Items.bucket, request.s3Items.key);
+            S3Object object = s3.getObject(getObjectRequest);
+
+            List<DeliveryItem> items = mapper
+                .readValue(IOUtils.toString(object.getObjectContent()).getBytes("UTF8"),
+                    new TypeReference<List<DeliveryItem>>(){});
+
+            request.items = items;
+        }
+
+        return request;
     }
+
 
     @Override
     public void generationFinished(String generateResult) {

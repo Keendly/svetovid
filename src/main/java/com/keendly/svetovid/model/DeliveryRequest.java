@@ -10,4 +10,5 @@ public class DeliveryRequest {
     public Long timestamp;
 
     public List<DeliveryItem> items;
+    public S3Object s3Items;
 }
