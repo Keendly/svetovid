@@ -1,8 +1,5 @@
 package com.keendly.svetovid.activities;
 
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
-
 import com.amazonaws.services.simpleworkflow.flow.DecisionContext;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProvider;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProviderImpl;
@@ -10,6 +7,9 @@ import com.amazonaws.services.simpleworkflow.flow.core.Promise;
 import com.amazonaws.services.simpleworkflow.flow.worker.LambdaFunctionClient;
 import com.keendly.svetovid.DeliveryState;
 import sun.reflect.generics.reflectiveObjects.ParameterizedTypeImpl;
+
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 
 public abstract class LambdaActivity<T, S> {
 
@@ -41,5 +41,4 @@ public abstract class LambdaActivity<T, S> {
         LambdaFunctionClient lambdaClient = decisionContext.getLambdaFunctionClient();
         return lambdaClient.scheduleLambdaFunction(getLambdaName(), request);
     }
-
 }

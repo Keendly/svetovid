@@ -17,13 +17,15 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 
 public class DeliveryWorkflowMapper {
 
     private static final Logger LOG = LoggerFactory.getLogger(DeliveryWorkflowImpl.class);
 
-    public static ExtractRequest mapDeliveryRequestToExtractArticlesRequest(DeliveryRequest request){
+    public static Optional<ExtractRequest> mapDeliveryRequestToExtractArticlesRequest(DeliveryRequest request){
         ExtractRequest extractRequest = new ExtractRequest();
+
 
         boolean articlesFound = false;
         for (DeliveryItem item : request.items){
@@ -41,9 +43,10 @@ public class DeliveryWorkflowMapper {
         }
 
         if (!articlesFound){
-            throw new RuntimeException("no articles found");
+            LOG.warn("No articles found");
+            return Optional.empty();
         }
-        return extractRequest;
+        return Optional.of(extractRequest);
     }
 
     public static Book mapDeliveryRequestAndExtractResultToBook

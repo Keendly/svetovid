@@ -1,7 +1,6 @@
 package com.keendly.svetovid;
 
-import java.io.IOException;
-import java.util.List;
+import static com.keendly.svetovid.DeliveryWorkflowMapper.*;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
@@ -11,6 +10,7 @@ import com.amazonaws.services.simpleworkflow.flow.DecisionContext;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProvider;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProviderImpl;
 import com.amazonaws.services.simpleworkflow.flow.annotations.Asynchronous;
+import com.amazonaws.services.simpleworkflow.flow.core.OrPromise;
 import com.amazonaws.services.simpleworkflow.flow.core.Promise;
 import com.amazonaws.services.simpleworkflow.flow.core.Settable;
 import com.amazonaws.services.simpleworkflow.flow.core.TryCatch;
@@ -33,11 +33,14 @@ import com.keendly.svetovid.model.DeliveryRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.keendly.svetovid.DeliveryWorkflowMapper.*;
+import java.io.IOException;
+import java.util.List;
+import java.util.Optional;
 
 public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 
     private static final Logger LOG = LoggerFactory.getLogger(DeliveryWorkflowImpl.class);
+    private static final String CANCEL_EXECUTION_DESCRIPTION = "cancelExecution";
 
     private final Settable<String> generateResult = new Settable<>();
 
@@ -55,20 +58,28 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
         new TryCatch() {
             @Override
             protected void doTry() throws Throwable {
+                Settable<Boolean> cancelExecution = new Settable<>();
+                cancelExecution.setDescription(CANCEL_EXECUTION_DESCRIPTION);
+
                 // extract articles
                 ExtractArticlesActivity extractArticlesActivity = new ExtractArticlesActivity();
-                ExtractRequest extractRequest = mapDeliveryRequestToExtractArticlesRequest(request);
+
+                Optional<ExtractRequest> extractRequest = mapDeliveryRequestToExtractArticlesRequest(request);
+                if (!extractRequest.isPresent()){
+                    cancelExecution.set(Boolean.TRUE);
+                    return;
+                }
 
                 Promise<String> extractResults =
-                    extractArticlesActivity.invoke(Jackson.toJsonString(extractRequest));
+                    extractArticlesActivity.invoke(Jackson.toJsonString(extractRequest.get()));
 
                 // generate ebook
                 Promise<String> triggerGenerateResult =
-                    invokeTriggerGenerate(request, extractResults);
+                    invokeTriggerGenerate(request, new OrPromise(extractResults, cancelExecution));
 
                 // send email
                 Promise<String> sendEmail =
-                    invokeSendEmail(request, generateResult);
+                    invokeSendEmail(request, new OrPromise(generateResult, cancelExecution));
 
 //                // update delivery
 //                UpdateDeliveryActivity updateDeliveryActivity = new UpdateDeliveryActivity();
@@ -89,7 +100,13 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
     }
 
     @Asynchronous
-    public Promise<String> invokeTriggerGenerate(DeliveryRequest deliveryRequest, Promise<String> extractResults){
+    public Promise<String> invokeTriggerGenerate(DeliveryRequest deliveryRequest, OrPromise extractResultsOrCancel){
+        if (isExecutionCanceled(extractResultsOrCancel)){
+            return Promise.asPromise("canceled");
+        }
+
+        Promise<String> extractResults = getReadyOne(extractResultsOrCancel);
+
         GenerateEbookActivity generateEbookActivity = new GenerateEbookActivity();
         LOG.trace("Got extract results {}", extractResults.get());
 
@@ -133,7 +150,11 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
     }
 
     @Asynchronous
-    public Promise<String> invokeSendEmail(DeliveryRequest deliveryRequest, Promise<String> generateResult){
+    public Promise<String> invokeSendEmail(DeliveryRequest deliveryRequest, OrPromise generateResultOrCancel){
+        if (isExecutionCanceled(generateResultOrCancel)){
+            return Promise.asPromise("canceled");
+        }
+
         SendEbookActivity sendEbookActivity = new SendEbookActivity();
         LOG.trace("Got generate results {}", generateResult.get());
 
@@ -239,5 +260,24 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
         JavaType type = mapper.getTypeFactory().
             constructCollectionType(List.class, clazz);
         return type;
+    }
+
+    private boolean isExecutionCanceled(OrPromise promises){
+        for (Promise promise : promises.getValues()){
+            if (promise != null && promise.isReady() && promise.getDescription() != null &&
+                promise.getDescription().equals(CANCEL_EXECUTION_DESCRIPTION)){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private <T> Promise<T> getReadyOne(OrPromise promises){
+        for (Promise promise : promises.getValues()){
+            if (promise.isReady()){
+                return promise;
+            }
+        }
+        return null;
     }
 }

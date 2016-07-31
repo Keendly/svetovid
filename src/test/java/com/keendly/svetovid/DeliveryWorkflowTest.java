@@ -1,12 +1,13 @@
 package com.keendly.svetovid;
 
+import static com.eclipsesource.json.Json.*;
+import static com.keendly.utils.mock.Helpers.*;
+
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProvider;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProviderImpl;
 import com.amazonaws.services.simpleworkflow.flow.WorkflowClock;
 import com.amazonaws.services.simpleworkflow.flow.core.Promise;
-import com.amazonaws.services.simpleworkflow.flow.core.Settable;
 import com.amazonaws.services.simpleworkflow.flow.core.Task;
-import com.amazonaws.services.simpleworkflow.flow.core.TryCatch;
 import com.amazonaws.services.simpleworkflow.flow.junit.FlowBlockJUnit4ClassRunner;
 import com.amazonaws.services.simpleworkflow.flow.junit.WorkflowTest;
 import com.eclipsesource.json.JsonArray;
@@ -16,10 +17,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import static com.eclipsesource.json.Json.*;
-import static com.keendly.utils.mock.Helpers.*;
-import static org.junit.Assert.*;
 
 @RunWith(FlowBlockJUnit4ClassRunner.class)
 public class DeliveryWorkflowTest {
@@ -144,27 +141,10 @@ public class DeliveryWorkflowTest {
         LambdaMock veles = lambdaMock("veles");
 
         // when
-        Settable<Throwable> exception = new Settable<>();
-        new TryCatch() {
-            @Override
-            protected void doTry() throws Throwable {
-                workflow.deliver(deliveryRequest.toString());
-            }
-
-            @Override
-            protected void doCatch(Throwable e) throws Throwable {
-                exception.set(e);
-            }
-        };
+        workflow.deliver(deliveryRequest.toString());
 
         // then
-        new Task(exception) {
-            @Override
-            protected void doExecute() throws Throwable {
-                assertTrue(exception.isReady());
-                verifyNotInvoked(veles);
-            }
-        };
+        verifyNotInvoked(veles);
     }
 
     private JsonArray array(){
