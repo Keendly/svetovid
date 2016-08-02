@@ -27,7 +27,7 @@ public class Decider {
             System.exit(1);
         }
 
-        AmazonSimpleWorkflow swfClient = getSWFClient(arguments.profile);
+        AmazonSimpleWorkflow swfClient = getSWFClient(arguments.profile, arguments.region);
 
         final WorkflowWorker worker = new WorkflowWorker(swfClient, DOMAIN, DECISION_TASK_LIST);
         worker.addWorkflowImplementationType(DeliveryWorkflowImpl.class);
@@ -49,7 +49,7 @@ public class Decider {
         });
     }
 
-    private static AmazonSimpleWorkflow getSWFClient(String profile) {
+    private static AmazonSimpleWorkflow getSWFClient(String profile, String region) {
         AmazonSimpleWorkflow client;
         if (profile == null){
             client = new AmazonSimpleWorkflowClient();
@@ -57,7 +57,7 @@ public class Decider {
             ProfileCredentialsProvider credentialsProvider = new ProfileCredentialsProvider(profile);
             client = new AmazonSimpleWorkflowClient(credentialsProvider);
         }
-        client.setRegion(Region.getRegion(Regions.EU_WEST_1));
+        client.setRegion(Region.getRegion(Regions.fromName(region.toLowerCase())));
         return client;
     }
 
@@ -65,5 +65,8 @@ public class Decider {
 
         @Parameter(names = "--profile", description = "AWS Credentials profile")
         String profile;
+
+        @Parameter(names = "--region", description = "AWS Region")
+        String region = Region.getRegion(Regions.EU_WEST_1).getName();
     }
 }
