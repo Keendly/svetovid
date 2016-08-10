@@ -1,7 +1,5 @@
 package com.keendly.svetovid;
 
-import java.util.concurrent.TimeUnit;
-
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
@@ -10,6 +8,8 @@ import com.amazonaws.services.simpleworkflow.AmazonSimpleWorkflowClient;
 import com.amazonaws.services.simpleworkflow.flow.WorkflowWorker;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
+
+import java.util.concurrent.TimeUnit;
 
 public class Decider {
 

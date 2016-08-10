@@ -1,5 +1,12 @@
 package com.keendly.utils.mock;
 
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
+
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.GetObjectRequest;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContext;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProvider;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProviderImpl;
@@ -13,11 +20,13 @@ import com.amazonaws.services.simpleworkflow.flow.worker.CurrentDecisionContext;
 import com.amazonaws.util.json.Jackson;
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
+import org.hamcrest.BaseMatcher;
 import org.hamcrest.CoreMatchers;
+import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.skyscreamer.jsonassert.JSONAssert;
 
-import static org.junit.Assert.*;
+import java.io.ByteArrayInputStream;
 
 public class Helpers {
 
@@ -59,6 +68,28 @@ public class Helpers {
                 throw e;
             }
         };
+    }
+
+    public static void mockS3Object(String key, String content, AmazonS3 mockClient){
+        S3Object s3Object = mock(S3Object.class);
+        S3ObjectInputStream is = new S3ObjectInputStream(new ByteArrayInputStream(content.getBytes()), null);
+        when(s3Object.getObjectContent()).thenReturn(is);
+        when(mockClient.getObject(argThat(new BaseMatcher<GetObjectRequest>() {
+
+            @Override
+            public void describeTo(Description description) {
+
+            }
+
+            @Override
+            public boolean matches(Object item) {
+                if (!(item instanceof GetObjectRequest)){
+                    return false;
+                }
+                GetObjectRequest o = (GetObjectRequest) item;
+                return o.getBucketName().equals("keendly") && o.getKey().equals(key);
+            }
+        }))).thenReturn(s3Object);
     }
 
     public static void verifyNotInvoked(LambdaMock mock){

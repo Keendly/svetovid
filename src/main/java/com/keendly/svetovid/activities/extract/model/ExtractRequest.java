@@ -6,7 +6,9 @@ import java.util.List;
 
 public class ExtractRequest implements Serializable {
 
-    public List<ExtractRequestItem> requests = new ArrayList<>();
+    public String workflowId;
+    public String runId;
+    public List<ExtractRequestItem> content = new ArrayList<>();
 
     public static class ExtractRequestItem {
         public String url;

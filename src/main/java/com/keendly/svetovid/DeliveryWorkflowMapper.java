@@ -38,7 +38,7 @@ public class DeliveryWorkflowMapper {
                 requestItem.url = article.url;
                 requestItem.withImages = item.includeImages;
                 requestItem.withMetadata = Boolean.FALSE;
-                extractRequest.requests.add(requestItem);
+                extractRequest.content.add(requestItem);
             }
         }
 

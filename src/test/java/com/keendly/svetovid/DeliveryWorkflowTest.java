@@ -2,7 +2,9 @@ package com.keendly.svetovid;
 
 import static com.eclipsesource.json.Json.*;
 import static com.keendly.utils.mock.Helpers.*;
+import static org.mockito.Mockito.*;
 
+import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProvider;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContextProviderImpl;
 import com.amazonaws.services.simpleworkflow.flow.WorkflowClock;
@@ -10,10 +12,14 @@ import com.amazonaws.services.simpleworkflow.flow.core.Promise;
 import com.amazonaws.services.simpleworkflow.flow.core.Task;
 import com.amazonaws.services.simpleworkflow.flow.junit.FlowBlockJUnit4ClassRunner;
 import com.amazonaws.services.simpleworkflow.flow.junit.WorkflowTest;
+import com.amazonaws.util.json.Jackson;
 import com.eclipsesource.json.JsonArray;
 import com.eclipsesource.json.JsonObject;
+import com.keendly.svetovid.activities.extract.model.ExtractFinished;
+import com.keendly.svetovid.s3.S3ClientHolder;
 import com.keendly.utils.mock.LambdaMock;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,6 +34,8 @@ public class DeliveryWorkflowTest {
 
     private DeliveryWorkflowClient workflow;
 
+    private AmazonS3 amazonS3;
+
     @Before
     public void setUp() throws Exception {
         // create workflow client
@@ -36,10 +44,17 @@ public class DeliveryWorkflowTest {
 
         // initialize lambda test invoker
         initInvoker();
+
+        mockS3Client();
+    }
+
+    private void mockS3Client(){
+        amazonS3 = mock(AmazonS3.class);
+        S3ClientHolder.set(amazonS3);
     }
 
     @Test
-    public void testDeliver() throws Exception {
+    public void given_itemsIncluded_when_deliver_then_ok() throws Exception {
         // given
         JsonObject deliveryRequest = object()
             .add("id", 1)
@@ -61,6 +76,10 @@ public class DeliveryWorkflowTest {
                             .add("author", "Dariusz Maruszczak")
                             .add("content", "this is the article snippet from the feed")))));
 
+        JsonObject extractFinishedCallback = object()
+            .add("success", true)
+            .add("key", "messages/blablabla");
+
         JsonArray extractResults = array()
             .add(
                 object()
@@ -70,12 +89,11 @@ public class DeliveryWorkflowTest {
         String generateFinishedCallback
             = "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi";
 
-
-        LambdaMock veles = lambdaMock("veles");
+        LambdaMock velesTrigger = lambdaMock("veles_trigger");
         LambdaMock jariloTrigger = lambdaMock("jariloTrigger");
         LambdaMock perun = lambdaMock("perun_swf");
 
-        whenInvoked(veles).thenReturn(extractResults);
+        mockS3Object("messages/blablabla", extractResults.toString(), amazonS3);
 
         // when
         workflow.deliver(deliveryRequest.toString());
@@ -83,12 +101,22 @@ public class DeliveryWorkflowTest {
         new Task(delay(1)) {
             @Override
             protected void doExecute() throws Throwable {
+                ExtractFinished extractFinished =
+                    Jackson.fromJsonString(extractFinishedCallback.toString(), ExtractFinished.class);
+                workflow.extractionFinished(extractFinished);
+            }
+        };
+
+        new Task(delay(2)) {
+            @Override
+            protected void doExecute() throws Throwable {
                 workflow.generationFinished(generateFinishedCallback);
             }
         };
 
         // then
-        verifyInvokedWith(veles, object().add("requests", array()
+        verifyInvokedWith(velesTrigger, object()
+            .add("content", array()
             .add(object()
                 .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
                 .add("withImages", TRUE)
@@ -122,7 +150,13 @@ public class DeliveryWorkflowTest {
     }
 
     @Test
-    public void testDeliver_noArticles() throws Exception {
+    @Ignore
+    public void given_itemsOnS3_when_deliver_then_downloadFirst() throws Exception {
+
+    }
+
+    @Test
+    public void given_noArticles_when_deliver_then_cancel() throws Exception {
         // given
         JsonObject deliveryRequest = object()
             .add("id", 1)

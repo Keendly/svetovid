@@ -39,6 +39,6 @@ public abstract class LambdaActivity<T, S> {
         DecisionContextProvider decisionProvider = new DecisionContextProviderImpl();
         DecisionContext decisionContext = decisionProvider.getDecisionContext();
         LambdaFunctionClient lambdaClient = decisionContext.getLambdaFunctionClient();
-        return lambdaClient.scheduleLambdaFunction(getLambdaName(), request);
+        return lambdaClient.scheduleLambdaFunction(getLambdaName(), request, 300);
     }
 }

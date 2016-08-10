@@ -3,7 +3,6 @@ package com.keendly.svetovid;
 import static com.keendly.svetovid.DeliveryWorkflowMapper.*;
 
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.simpleworkflow.flow.DecisionContext;
@@ -21,6 +20,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.keendly.svetovid.activities.extract.ExtractArticlesActivity;
+import com.keendly.svetovid.activities.extract.model.ExtractFinished;
 import com.keendly.svetovid.activities.extract.model.ExtractRequest;
 import com.keendly.svetovid.activities.extract.model.ExtractResult;
 import com.keendly.svetovid.activities.generate.GenerateEbookActivity;
@@ -30,6 +30,7 @@ import com.keendly.svetovid.activities.send.SendEbookActivity;
 import com.keendly.svetovid.activities.send.model.SendRequest;
 import com.keendly.svetovid.model.DeliveryItem;
 import com.keendly.svetovid.model.DeliveryRequest;
+import com.keendly.svetovid.s3.S3ClientHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,8 +44,9 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
     private static final String CANCEL_EXECUTION_DESCRIPTION = "cancelExecution";
 
     private final Settable<String> generateResult = new Settable<>();
+    private final Settable<ExtractFinished> extractResult = new Settable<>();
 
-    private final AmazonS3 s3 = new AmazonS3Client();
+    private final AmazonS3 s3 = S3ClientHolder.get();
 
     private DeliveryState state;
 
@@ -70,12 +72,14 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
                     return;
                 }
 
-                Promise<String> extractResults =
+                extractRequest.get().runId = getRunId();
+                extractRequest.get().workflowId = getWorkFlowId();
+                Promise<String> triggerExtractResult =
                     extractArticlesActivity.invoke(Jackson.toJsonString(extractRequest.get()));
 
                 // generate ebook
                 Promise<String> triggerGenerateResult =
-                    invokeTriggerGenerate(request, new OrPromise(extractResults, cancelExecution));
+                    invokeTriggerGenerate(request, new OrPromise(extractResult, cancelExecution));
 
                 // send email
                 Promise<String> sendEmail =
@@ -100,20 +104,30 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
     }
 
     @Asynchronous
-    public Promise<String> invokeTriggerGenerate(DeliveryRequest deliveryRequest, OrPromise extractResultsOrCancel){
+    public Promise<String> invokeTriggerGenerate(DeliveryRequest deliveryRequest, OrPromise extractResultsOrCancel)
+        throws IOException {
         if (isExecutionCanceled(extractResultsOrCancel)){
             return Promise.asPromise("canceled");
         }
 
-        Promise<String> extractResults = getReadyOne(extractResultsOrCancel);
+        Promise<ExtractFinished> extractFinished = getReadyOne(extractResultsOrCancel);
 
         GenerateEbookActivity generateEbookActivity = new GenerateEbookActivity();
-        LOG.trace("Got extract results {}", extractResults.get());
+        LOG.trace("Got extract results {}", extractFinished.get());
+
+        if (!extractFinished.get().success){
+            LOG.error("Error during extracting");
+            throw new RuntimeException("Error during extraction: " +extractFinished.get().error);
+        }
+
+        // fetch extract results from S3
+        GetObjectRequest getObjectRequest = new GetObjectRequest("keendly", extractFinished.get().key);
+        S3Object object = s3.getObject(getObjectRequest);
 
         JavaType type = constructListType(ExtractResult.class);
         Book book =
             mapDeliveryRequestAndExtractResultToBook(deliveryRequest,
-                mapToOutput(extractResults.get(), type));
+                mapToOutput(IOUtils.toString(object.getObjectContent()), type));
 
         TriggerGenerateRequest triggerGenerateRequest = new TriggerGenerateRequest();
         triggerGenerateRequest.content = book;
@@ -218,6 +232,11 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
     @Override
     public void generationFinished(String generateResult) {
         this.generateResult.set(generateResult);
+    }
+
+    @Override
+    public void extractionFinished(ExtractFinished extractFinished) {
+        this.extractResult.set(extractFinished);
     }
 
     @Override

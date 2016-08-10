@@ -9,7 +9,7 @@ import java.util.List;
 
 public class ExtractArticlesActivity extends LambdaActivity<ExtractRequest, List<ExtractResult>> {
 
-    private static final String LAMBDA = "veles";
+    private static final String LAMBDA = "veles_trigger";
 
     @Override
     protected String getLambdaName() {
