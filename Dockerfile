@@ -8,4 +8,4 @@ RUN mkdir -p $PROJECT_DIR
 COPY target/svetovid*.jar $PROJECT_DIR/svetovid.jar
 ENV JAR_PATH $PROJECT_DIR/svetovid.jar
 
-CMD java -Xmx200m -jar $JAR_PATH --region us-east-1
+CMD java -Xmx200m -jar $JAR_PATH --region eu-west-1
