@@ -4,5 +4,5 @@ public class TriggerGenerateRequest {
 
     public String workflowId;
     public String runId;
-    public Object content;
+    public String content;
 }

@@ -52,6 +52,7 @@ public class DeliveryWorkflowTest {
     }
 
     @Test
+    @Ignore
     public void given_itemsIncluded_when_deliver_then_ok() throws Exception {
         // given
         JsonObject deliveryRequest = object()

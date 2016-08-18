@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 
@@ -129,8 +130,11 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
             mapDeliveryRequestAndExtractResultToBook(deliveryRequest,
                 mapToOutput(IOUtils.toString(object.getObjectContent()), type));
 
+        // store ebook in s3
+        String key = UUID.randomUUID().toString();
+        s3.putObject("keendly", "messages/" + key, Jackson.toJsonString(book));
         TriggerGenerateRequest triggerGenerateRequest = new TriggerGenerateRequest();
-        triggerGenerateRequest.content = book;
+        triggerGenerateRequest.content = key;
         triggerGenerateRequest.runId = getRunId();
         triggerGenerateRequest.workflowId = getWorkFlowId();
 
@@ -141,7 +145,7 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 //            generateEbookActivity.invoke(Jackson.toJsonString(request));
 
         Promise<String> triggerResponse =
-                    generateEbookActivity.invoke(Jackson.toJsonString(triggerGenerateRequest));
+                    generateEbookActivity.invoke(Jackson.toJsonString(request));
 
 
         return triggerResponse;
