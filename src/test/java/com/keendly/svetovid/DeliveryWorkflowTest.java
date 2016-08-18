@@ -12,10 +12,8 @@ import com.amazonaws.services.simpleworkflow.flow.core.Promise;
 import com.amazonaws.services.simpleworkflow.flow.core.Task;
 import com.amazonaws.services.simpleworkflow.flow.junit.FlowBlockJUnit4ClassRunner;
 import com.amazonaws.services.simpleworkflow.flow.junit.WorkflowTest;
-import com.amazonaws.util.json.Jackson;
 import com.eclipsesource.json.JsonArray;
 import com.eclipsesource.json.JsonObject;
-import com.keendly.svetovid.activities.extract.model.ExtractFinished;
 import com.keendly.svetovid.s3.S3ClientHolder;
 import com.keendly.utils.mock.LambdaMock;
 import org.junit.Before;
@@ -101,9 +99,7 @@ public class DeliveryWorkflowTest {
         new Task(delay(1)) {
             @Override
             protected void doExecute() throws Throwable {
-                ExtractFinished extractFinished =
-                    Jackson.fromJsonString(extractFinishedCallback.toString(), ExtractFinished.class);
-                workflow.extractionFinished(extractFinished);
+                workflow.extractionFinished(extractFinishedCallback.toString());
             }
         };
 

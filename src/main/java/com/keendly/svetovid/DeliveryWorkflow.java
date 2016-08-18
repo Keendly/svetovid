@@ -5,7 +5,6 @@ import com.amazonaws.services.simpleworkflow.flow.annotations.GetState;
 import com.amazonaws.services.simpleworkflow.flow.annotations.Signal;
 import com.amazonaws.services.simpleworkflow.flow.annotations.Workflow;
 import com.amazonaws.services.simpleworkflow.flow.annotations.WorkflowRegistrationOptions;
-import com.keendly.svetovid.activities.extract.model.ExtractFinished;
 
 import java.io.IOException;
 
@@ -21,7 +20,7 @@ public interface DeliveryWorkflow {
     void generationFinished(String generateResult);
 
     @Signal
-    void extractionFinished(ExtractFinished extractFinished);
+    void extractionFinished(String extractResult);
 
     @GetState
     String getState();

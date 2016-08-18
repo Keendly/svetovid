@@ -235,7 +235,8 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
     }
 
     @Override
-    public void extractionFinished(ExtractFinished extractFinished) {
+    public void extractionFinished(String extractResult) {
+        ExtractFinished extractFinished = Jackson.fromJsonString(extractResult, ExtractFinished.class);
         this.extractResult.set(extractFinished);
     }
 
