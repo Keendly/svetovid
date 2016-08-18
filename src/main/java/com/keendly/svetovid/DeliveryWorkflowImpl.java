@@ -131,8 +131,8 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
                 mapToOutput(IOUtils.toString(object.getObjectContent()), type));
 
         // store ebook in s3
-        String key = UUID.randomUUID().toString();
-        s3.putObject("keendly", "messages/" + key, Jackson.toJsonString(book));
+        String key = "messages/" + UUID.randomUUID().toString();
+        s3.putObject("keendly", key, Jackson.toJsonString(book));
         TriggerGenerateRequest triggerGenerateRequest = new TriggerGenerateRequest();
         triggerGenerateRequest.content = key;
         triggerGenerateRequest.runId = getRunId();
@@ -145,7 +145,7 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 //            generateEbookActivity.invoke(Jackson.toJsonString(request));
 
         Promise<String> triggerResponse =
-                    generateEbookActivity.invoke(Jackson.toJsonString(request));
+                    generateEbookActivity.invoke(request);
 
 
         return triggerResponse;
