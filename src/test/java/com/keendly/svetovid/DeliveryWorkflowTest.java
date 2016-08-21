@@ -15,12 +15,18 @@ import com.amazonaws.services.simpleworkflow.flow.junit.WorkflowTest;
 import com.eclipsesource.json.JsonArray;
 import com.eclipsesource.json.JsonObject;
 import com.keendly.svetovid.s3.S3ClientHolder;
+import com.keendly.svetovid.utils.MessageKeyGenerator;
+import com.keendly.svetovid.utils.WorkflowUtils;
 import com.keendly.utils.mock.LambdaMock;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.skyscreamer.jsonassert.JSONAssert;
+import org.skyscreamer.jsonassert.JSONCompareMode;
 
 @RunWith(FlowBlockJUnit4ClassRunner.class)
 public class DeliveryWorkflowTest {
@@ -33,6 +39,8 @@ public class DeliveryWorkflowTest {
     private DeliveryWorkflowClient workflow;
 
     private AmazonS3 amazonS3;
+    private WorkflowUtils workflowUtils;
+    private MessageKeyGenerator messageKeyGenerator;
 
     @Before
     public void setUp() throws Exception {
@@ -43,18 +51,33 @@ public class DeliveryWorkflowTest {
         // initialize lambda test invoker
         initInvoker();
 
-        mockS3Client();
+        initMocks();
     }
 
-    private void mockS3Client(){
-        amazonS3 = mock(AmazonS3.class);
+    private void initMocks(){
+        amazonS3 = Mockito.mock(AmazonS3.class);
         S3ClientHolder.set(amazonS3);
+
+        workflowUtils = mock(WorkflowUtils.class);
+        WorkflowUtils.set(workflowUtils);
+
+        messageKeyGenerator = mock(MessageKeyGenerator.class);
+        MessageKeyGenerator.set(messageKeyGenerator);
     }
 
     @Test
-    @Ignore
     public void given_itemsIncluded_when_deliver_then_ok() throws Exception {
+        String workflowId = "myWorkflowId";
+        String runId = "myRunId";
+
+        String generateMessageKey = "myGenerateMessage";
+
         // given
+        when(workflowUtils.getWorkFlowId()).thenReturn(workflowId);
+        when(workflowUtils.getRunId()).thenReturn(runId);
+
+        when(messageKeyGenerator.generate()).thenReturn(generateMessageKey);
+
         JsonObject deliveryRequest = object()
             .add("id", 1)
             .add("userId", 2)
@@ -113,14 +136,15 @@ public class DeliveryWorkflowTest {
 
         // then
         verifyInvokedWith(velesTrigger, object()
+            .add("workflowId", workflowId)
+            .add("runId", runId)
             .add("content", array()
             .add(object()
                 .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
                 .add("withImages", TRUE)
                 .add("withMetadata", FALSE))));
 
-        verifyInvokedWith(jariloTrigger, object()
-            .add("content", object()
+        JsonObject book = object()
                 .add("title", "Keendly Feeds")
                 .add("language", "en-GB")
                 .add("creator", "Keendly")
@@ -134,7 +158,19 @@ public class DeliveryWorkflowTest {
                                 .add("author", "Dariusz Maruszczak")
                                 .add("title", "Pedro: Nie pomyliłem się, odchodząc z Barcelony")
                                 .add("content", "this is the article text extracted from website")
-                                .add("date", 1465584508000L)))))));
+                                .add("date", 1465584508000L)))));
+
+        // after generation triggered, check if correct file got uploaded to S3
+        executeAfterInvoked(jariloTrigger, () -> {
+            ArgumentCaptor<String> savedCaptor = ArgumentCaptor.forClass(String.class);
+            verify(amazonS3).putObject(anyString(), anyString(), savedCaptor.capture());
+            JSONAssert.assertEquals(book.toString(), savedCaptor.getValue(), JSONCompareMode.LENIENT);
+        });
+
+        verifyInvokedWith(jariloTrigger, object()
+            .add("workflowId", workflowId)
+            .add("runId", runId)
+            .add("content", generateMessageKey));
 
         verifyInvokedWith(perun, object()
             .add("subject", "Keendly Delivery")
@@ -149,6 +185,12 @@ public class DeliveryWorkflowTest {
     @Test
     @Ignore
     public void given_itemsOnS3_when_deliver_then_downloadFirst() throws Exception {
+
+    }
+
+    @Test
+    @Ignore
+    public void given_generationError_when_deliver_then_retry() throws Exception {
 
     }
 

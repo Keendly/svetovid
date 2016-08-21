@@ -7,6 +7,7 @@ public class S3ClientHolder {
 
     private static AmazonS3 s3 = new AmazonS3Client();
 
+    // to allow mocking the client in unit tests
     public static void set(AmazonS3 client){
         s3 = client;
     }

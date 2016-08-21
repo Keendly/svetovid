@@ -5,9 +5,6 @@ import static com.keendly.svetovid.DeliveryWorkflowMapper.*;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.simpleworkflow.flow.DecisionContext;
-import com.amazonaws.services.simpleworkflow.flow.DecisionContextProvider;
-import com.amazonaws.services.simpleworkflow.flow.DecisionContextProviderImpl;
 import com.amazonaws.services.simpleworkflow.flow.annotations.Asynchronous;
 import com.amazonaws.services.simpleworkflow.flow.core.OrPromise;
 import com.amazonaws.services.simpleworkflow.flow.core.Promise;
@@ -31,23 +28,25 @@ import com.keendly.svetovid.activities.send.model.SendRequest;
 import com.keendly.svetovid.model.DeliveryItem;
 import com.keendly.svetovid.model.DeliveryRequest;
 import com.keendly.svetovid.s3.S3ClientHolder;
+import com.keendly.svetovid.utils.MessageKeyGenerator;
+import com.keendly.svetovid.utils.WorkflowUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 
     private static final Logger LOG = LoggerFactory.getLogger(DeliveryWorkflowImpl.class);
     private static final String CANCEL_EXECUTION_DESCRIPTION = "cancelExecution";
-
     private final Settable<String> generateResult = new Settable<>();
     private final Settable<ExtractFinished> extractResult = new Settable<>();
 
     private final AmazonS3 s3 = S3ClientHolder.get();
+    private final WorkflowUtils workflowUtils = WorkflowUtils.get();
+    private final MessageKeyGenerator messageKeyGenerator = MessageKeyGenerator.get();
 
     private DeliveryState state;
 
@@ -73,8 +72,8 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
                     return;
                 }
 
-                extractRequest.get().runId = getRunId();
-                extractRequest.get().workflowId = getWorkFlowId();
+                extractRequest.get().runId = workflowUtils.getRunId();
+                extractRequest.get().workflowId = workflowUtils.getWorkFlowId();
                 Promise<String> triggerExtractResult =
                     extractArticlesActivity.invoke(Jackson.toJsonString(extractRequest.get()));
 
@@ -130,13 +129,13 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
             mapDeliveryRequestAndExtractResultToBook(deliveryRequest,
                 mapToOutput(IOUtils.toString(object.getObjectContent()), type));
 
-        // store ebook in s3
-        String key = "messages/" + UUID.randomUUID().toString();
+        // store ebook generation request in s3
+        String key = messageKeyGenerator.generate();
         s3.putObject("keendly", key, Jackson.toJsonString(book));
         TriggerGenerateRequest triggerGenerateRequest = new TriggerGenerateRequest();
         triggerGenerateRequest.content = key;
-        triggerGenerateRequest.runId = getRunId();
-        triggerGenerateRequest.workflowId = getWorkFlowId();
+        triggerGenerateRequest.runId = workflowUtils.getRunId();
+        triggerGenerateRequest.workflowId = workflowUtils.getWorkFlowId();
 
         String request = Jackson.toJsonString(triggerGenerateRequest);
         LOG.trace("Triggering generate with {}", request);
@@ -151,21 +150,7 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
         return triggerResponse;
     }
 
-    private String getWorkFlowId(){
-        DecisionContext context = getContext();
-        return context.getWorkflowContext().getWorkflowExecution().getWorkflowId();
-    }
 
-    private String getRunId(){
-        DecisionContext context = getContext();
-        return context.getWorkflowContext().getWorkflowExecution().getRunId();
-    }
-
-    private DecisionContext getContext(){
-        DecisionContextProvider contextProvider
-            = new DecisionContextProviderImpl();
-        return contextProvider.getDecisionContext();
-    }
 
     @Asynchronous
     public Promise<String> invokeSendEmail(DeliveryRequest deliveryRequest, OrPromise generateResultOrCancel){

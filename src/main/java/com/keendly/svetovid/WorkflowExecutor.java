@@ -6,13 +6,16 @@ import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.simpleworkflow.AmazonSimpleWorkflow;
 import com.amazonaws.services.simpleworkflow.AmazonSimpleWorkflowClient;
+import com.amazonaws.services.simpleworkflow.flow.StartWorkflowOptions;
 import com.amazonaws.services.simpleworkflow.model.ListWorkflowTypesRequest;
 import com.amazonaws.services.simpleworkflow.model.RegistrationStatus;
 import com.amazonaws.services.simpleworkflow.model.Run;
 import com.amazonaws.services.simpleworkflow.model.StartWorkflowExecutionRequest;
+import com.amazonaws.services.simpleworkflow.model.WorkflowExecution;
 import com.amazonaws.services.simpleworkflow.model.WorkflowType;
 import com.amazonaws.services.simpleworkflow.model.WorkflowTypeInfo;
 import com.amazonaws.util.json.Jackson;
+import com.keendly.svetovid.activities.extract.model.ExtractFinished;
 import com.keendly.svetovid.model.DeliveryArticle;
 import com.keendly.svetovid.model.DeliveryItem;
 import com.keendly.svetovid.model.DeliveryRequest;
@@ -30,32 +33,35 @@ public class WorkflowExecutor {
 
     public static void main(String[] args) throws Exception {
 
-        WorkflowType workflowType = getWorkflowType("DeliveryWorkflow.deliver");
-        if (workflowType == null){
-            throw new RuntimeException("workflow type not found");
-        }
-
-        Run run = runWorkflow(workflowType, Jackson.toJsonString(getRequest()));
-
-        System.out.println("Started helloWorld workflow with workflowType=\"" + workflowType.getName()
-            + "\" and runId=\"" + run.getRunId() + "\"");
-
+//        WorkflowType workflowType = getWorkflowType("DeliveryWorkflow.deliver");
+//        if (workflowType == null){
+//            throw new RuntimeException("workflow type not found");
+//        }
 //
-//        DeliveryWorkflowClientExternalFactory clientFactory = new DeliveryWorkflowClientExternalFactoryImpl(simpleWorkflow, domain);
-//        DeliveryWorkflowClientExternal workflow = clientFactory.getClient();
+//        Run run = runWorkflow(workflowType, Jackson.toJsonString(getRequest()));
 //
-//        // Start Wrokflow Execution
-//        StartWorkflowOptions options = new StartWorkflowOptions().withLambdaRole("arn:aws:iam::625416862388:role/swf_lambda_role");
-//        workflow.deliver(Jackson.toJsonString(getRequest()), options);
-//
-//        // WorkflowExecution is available after workflow creation
-//        WorkflowExecution workflowExecution = workflow.getWorkflowExecution();
-//        System.out.println("Started helloWorld workflow with workflowId=\"" + workflowExecution.getWorkflowId()
-//            + "\" and runId=\"" + workflowExecution.getRunId() + "\"");
+//        System.out.println("Started helloWorld workflow with workflowType=\"" + workflowType.getName()
+//            + "\" and runId=\"" + run.getRunId() + "\"");
 
 //
-//        Thread.sleep(5000);
-//        workflow.generationFinished("ebooks/eb6c2a7d-188d-4f16-a202-4c3836db55f0");
+        DeliveryWorkflowClientExternalFactory clientFactory = new DeliveryWorkflowClientExternalFactoryImpl(getSWFClient(), DOMAIN);
+        DeliveryWorkflowClientExternal workflow = clientFactory.getClient();
+
+        // Start Wrokflow Execution
+        StartWorkflowOptions options = new StartWorkflowOptions().withLambdaRole("arn:aws:iam::625416862388:role/swf_lambda_role");
+        workflow.deliver(Jackson.toJsonString(getRequest()), options);
+
+        // WorkflowExecution is available after workflow creation
+        WorkflowExecution workflowExecution = workflow.getWorkflowExecution();
+        System.out.println("Started helloWorld workflow with workflowId=\"" + workflowExecution.getWorkflowId()
+            + "\" and runId=\"" + workflowExecution.getRunId() + "\"");
+
+
+        Thread.sleep(5000);
+        ExtractFinished finished = new ExtractFinished();
+        finished.success = true;
+        finished.key = "messages/2f63f56c-fda6-4981-aadb-a6d0a5efe043";
+        workflow.extractionFinished(Jackson.toJsonString(finished));
     }
 
     public static AmazonSimpleWorkflow getSWFClient() {

@@ -24,7 +24,9 @@ import org.hamcrest.BaseMatcher;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
+import org.json.JSONException;
 import org.skyscreamer.jsonassert.JSONAssert;
+import org.skyscreamer.jsonassert.JSONCompareMode;
 
 import java.io.ByteArrayInputStream;
 
@@ -58,7 +60,7 @@ public class Helpers {
 
                     @Override
                     protected void doExecute() throws Throwable {
-                        JSONAssert.assertEquals(request.toString(), mock.getInvocation().get().getRequest(), false);
+                        JSONAssert.assertEquals(request.toString(), mock.getInvocation().get().getRequest(), JSONCompareMode.LENIENT);
                     }
                 };
             }
@@ -66,6 +68,31 @@ public class Helpers {
             @Override
             protected void doCatch(Throwable e) throws Throwable {
                 throw e;
+            }
+        };
+    }
+
+    public interface Callback {
+        void execute() throws JSONException;
+    }
+
+    public static void executeAfterInvoked(LambdaMock mock, Callback callback){
+        new TryCatch() {
+
+            @Override
+            protected void doTry() throws Throwable {
+                new Task(mock.getInvocation()){
+
+                    @Override
+                    protected void doExecute() throws Throwable {
+                        callback.execute();
+                    }
+                };
+            }
+
+            @Override
+            protected void doCatch(Throwable throwable) throws Throwable {
+                throw throwable;
             }
         };
     }
