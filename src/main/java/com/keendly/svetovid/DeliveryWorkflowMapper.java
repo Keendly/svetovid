@@ -57,8 +57,12 @@ public class DeliveryWorkflowMapper {
         book.subject = "News";
         book.language = "en-GB";
         for (DeliveryItem item : deliveryRequest.items){
+            if (item.articles == null || item.articles.isEmpty()){
+                continue;
+            }
             Section section = new Section();
             section.title = item.title;
+
             for (DeliveryArticle article : item.articles){
                 Article bookArticle = new Article();
                 bookArticle.title = article.title;
