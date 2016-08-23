@@ -2,6 +2,7 @@ package com.keendly.svetovid;
 
 import static com.eclipsesource.json.Json.*;
 import static com.keendly.utils.mock.Helpers.*;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.*;
 
 import com.amazonaws.services.s3.AmazonS3;
@@ -12,6 +13,8 @@ import com.amazonaws.services.simpleworkflow.flow.core.Promise;
 import com.amazonaws.services.simpleworkflow.flow.core.Task;
 import com.amazonaws.services.simpleworkflow.flow.junit.FlowBlockJUnit4ClassRunner;
 import com.amazonaws.services.simpleworkflow.flow.junit.WorkflowTest;
+import com.amazonaws.util.IOUtils;
+import com.amazonaws.util.json.Jackson;
 import com.eclipsesource.json.JsonArray;
 import com.eclipsesource.json.JsonObject;
 import com.keendly.svetovid.s3.S3ClientHolder;
@@ -27,6 +30,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.skyscreamer.jsonassert.JSONAssert;
 import org.skyscreamer.jsonassert.JSONCompareMode;
+
+import java.io.File;
+import java.io.InputStream;
+import java.util.List;
 
 @RunWith(FlowBlockJUnit4ClassRunner.class)
 public class DeliveryWorkflowTest {
@@ -239,7 +246,6 @@ public class DeliveryWorkflowTest {
 
         LambdaMock velesTrigger = lambdaMock("veles_trigger");
         LambdaMock jariloTrigger = lambdaMock("jariloTrigger");
-        LambdaMock perun = lambdaMock("perun_swf");
 
         mockS3Object(extractionResultKey, extractResults.toString(), amazonS3);
 
@@ -295,9 +301,92 @@ public class DeliveryWorkflowTest {
     }
 
     @Test
+    public void given_extractRequestTooLong_when_deliver_then_storeInS3() throws Exception {
+        String workflowId = "myWorkflowId";
+        String runId = "myRunId";
+
+        String deliveryRequestItemsKey = "myDeliveryRequestKey";
+        String extractMessageKey = "myExtractMessage";
+        String generateMessageKey = "myGenerateMessage";
+        String extractionResultKey = "myExtractionMessageResultKey";
+
+        // given
+        when(workflowUtils.getWorkFlowId()).thenReturn(workflowId);
+        when(workflowUtils.getRunId()).thenReturn(runId);
+
+        when(messageKeyGenerator.generate()).thenReturn(extractMessageKey, generateMessageKey);
+
+        InputStream deliveryRequestItems =
+            this.getClass().getResourceAsStream(File.separator + "very_long_items_list.json");
+        mockS3Object(deliveryRequestItemsKey, IOUtils.toString(deliveryRequestItems), amazonS3);
+
+        JsonObject deliveryRequest = object()
+            .add("id", 1)
+            .add("userId", 2)
+            .add("email", "contact@keendly.com")
+            .add("timestamp", System.currentTimeMillis())
+            .add("s3Items", object()
+                .add("bucket", "keendly")
+                .add("key", deliveryRequestItemsKey));
+
+        JsonObject extractFinishedCallback = object()
+            .add("success", true)
+            .add("key", extractionResultKey);
+
+        JsonArray extractResults = array()
+            .add(
+                object()
+                    .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
+                    .add("text", "this is the article text extracted from website"));
+
+        String generateFinishedCallback
+            = "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi";
+
+        LambdaMock velesTrigger = lambdaMock("veles_trigger");
+
+        mockS3Object(extractionResultKey, extractResults.toString(), amazonS3);
+
+        // when
+        workflow.deliver(deliveryRequest.toString());
+
+        new Task(delay(1)) {
+            @Override
+            protected void doExecute() throws Throwable {
+                workflow.extractionFinished(extractFinishedCallback.toString());
+            }
+        };
+
+        new Task(delay(2)) {
+            @Override
+            protected void doExecute() throws Throwable {
+                workflow.generationFinished(generateFinishedCallback);
+            }
+        };
+
+        // then
+        verifyInvokedWith(velesTrigger, object()
+            .add("workflowId", workflowId)
+            .add("runId", runId)
+            .add("s3Content", extractMessageKey));
+
+        executeAfterInvoked(velesTrigger, () -> {
+            ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+            verify(amazonS3).putObject(eq("keendly"), eq(extractMessageKey), captor.capture());
+            assertEquals(487, Jackson.fromJsonString(captor.getValue(), List.class).size());
+        });
+    }
+
+    @Test
     @Ignore
     public void given_generationError_when_deliver_then_retry() throws Exception {
 
+    }
+
+
+    @Test
+    @Ignore
+    public void given_generateRequestTooLong_when_deliver_then_storeInS3() throws Exception {
+        // TODO to be implemented
     }
 
     @Test

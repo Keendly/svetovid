@@ -41,6 +41,8 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 
     private static final Logger LOG = LoggerFactory.getLogger(DeliveryWorkflowImpl.class);
     private static final String CANCEL_EXECUTION_DESCRIPTION = "cancelExecution";
+    private static final int REQUEST_MAX_SIZE = 32000;
+
     private final Settable<String> generateResult = new Settable<>();
     private final Settable<ExtractFinished> extractResult = new Settable<>();
 
@@ -66,16 +68,23 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
                 // extract articles
                 ExtractArticlesActivity extractArticlesActivity = new ExtractArticlesActivity();
 
-                Optional<ExtractRequest> extractRequest = mapDeliveryRequestToExtractArticlesRequest(request);
-                if (!extractRequest.isPresent()){
+                Optional<ExtractRequest> extractRequestOptional = mapDeliveryRequestToExtractArticlesRequest(request);
+                if (!extractRequestOptional.isPresent()){
                     cancelExecution.set(Boolean.TRUE);
                     return;
                 }
 
-                extractRequest.get().runId = workflowUtils.getRunId();
-                extractRequest.get().workflowId = workflowUtils.getWorkFlowId();
+                ExtractRequest extractRequest = extractRequestOptional.get();
+                if (isTooBig(extractRequest)){
+                    String key = storeInS3(Jackson.toJsonString(extractRequest.content));
+                    extractRequest.s3Content = key;
+                    extractRequest.content = null;
+                }
+
+                extractRequest.runId = workflowUtils.getRunId();
+                extractRequest.workflowId = workflowUtils.getWorkFlowId();
                 Promise<String> triggerExtractResult =
-                    extractArticlesActivity.invoke(Jackson.toJsonString(extractRequest.get()));
+                    extractArticlesActivity.invoke(Jackson.toJsonString(extractRequest));
 
                 // generate ebook
                 Promise<String> triggerGenerateResult =
@@ -101,6 +110,10 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 //                setState(DeliveryState.ERROR);
             }
         };
+    }
+
+    private static boolean isTooBig(ExtractRequest request){
+        return Jackson.toJsonString(request).length() > REQUEST_MAX_SIZE;
     }
 
     @Asynchronous
@@ -130,8 +143,7 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
                 mapToOutput(IOUtils.toString(object.getObjectContent()), type));
 
         // store ebook generation request in s3
-        String key = messageKeyGenerator.generate();
-        s3.putObject("keendly", key, Jackson.toJsonString(book));
+        String key = storeInS3(Jackson.toJsonString(book));
         TriggerGenerateRequest triggerGenerateRequest = new TriggerGenerateRequest();
         triggerGenerateRequest.content = key;
         triggerGenerateRequest.runId = workflowUtils.getRunId();
@@ -150,7 +162,11 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
         return triggerResponse;
     }
 
-
+    private String storeInS3(String content){
+        String key = messageKeyGenerator.generate();
+        s3.putObject("keendly", key, content);
+        return key;
+    }
 
     @Asynchronous
     public Promise<String> invokeSendEmail(DeliveryRequest deliveryRequest, OrPromise generateResultOrCancel){

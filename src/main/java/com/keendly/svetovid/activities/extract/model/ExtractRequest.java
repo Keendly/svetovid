@@ -9,6 +9,7 @@ public class ExtractRequest implements Serializable {
     public String workflowId;
     public String runId;
     public List<ExtractRequestItem> content = new ArrayList<>();
+    public String s3Content;
 
     public static class ExtractRequestItem {
         public String url;
