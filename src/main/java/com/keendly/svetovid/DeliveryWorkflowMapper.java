@@ -90,6 +90,33 @@ public class DeliveryWorkflowMapper {
         return null;
     }
 
+    public static Book mapDeliveryRequestToBook(DeliveryRequest deliveryRequest) {
+        Book book = new Book();
+        book.title = "Keendly Feeds";
+        book.creator = "Keendly";
+        book.subject = "News";
+        book.language = "en-GB";
+        for (DeliveryItem item : deliveryRequest.items){
+            if (item.articles == null || item.articles.isEmpty()){
+                continue;
+            }
+            Section section = new Section();
+            section.title = item.title;
+
+            for (DeliveryArticle article : item.articles){
+                Article bookArticle = new Article();
+                bookArticle.title = article.title;
+                bookArticle.author = article.author;
+                bookArticle.date  = article.timestamp != null ? new Date(article.timestamp) : null;
+                bookArticle.url = article.url;
+                bookArticle.content = article.content;
+                section.articles.add(bookArticle);
+            }
+            book.sections.add(section);
+        }
+        return book;
+    }
+
     public static SendRequest mapDeliveryRequestAndGenerateResultToSendRequest
         (DeliveryRequest deliveryRequest, String generateResult){
 

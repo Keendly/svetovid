@@ -5,6 +5,9 @@ import static com.keendly.svetovid.DeliveryWorkflowMapper.*;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.simpleworkflow.flow.DecisionContextProvider;
+import com.amazonaws.services.simpleworkflow.flow.DecisionContextProviderImpl;
+import com.amazonaws.services.simpleworkflow.flow.WorkflowClock;
 import com.amazonaws.services.simpleworkflow.flow.annotations.Asynchronous;
 import com.amazonaws.services.simpleworkflow.flow.core.OrPromise;
 import com.amazonaws.services.simpleworkflow.flow.core.Promise;
@@ -41,10 +44,15 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 
     private static final Logger LOG = LoggerFactory.getLogger(DeliveryWorkflowImpl.class);
     private static final String CANCEL_EXECUTION_DESCRIPTION = "cancelExecution";
+    private static final String EXTRACTION_TIMER_CONTEXT = "extractionTimeout";
     private static final int REQUEST_MAX_SIZE = 32000;
+    private static final int EXTRACTION_TIMEOUT_IN_SECONDS = 10 * 60; // 10minutes
 
     private final Settable<String> generateResult = new Settable<>();
     private final Settable<ExtractFinished> extractResult = new Settable<>();
+
+    private DecisionContextProvider contextProvider = new DecisionContextProviderImpl();
+    private WorkflowClock clock = contextProvider.getDecisionContext().getWorkflowClock();
 
     private final AmazonS3 s3 = S3ClientHolder.get();
     private final WorkflowUtils workflowUtils = WorkflowUtils.get();
@@ -83,12 +91,15 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 
                 extractRequest.runId = workflowUtils.getRunId();
                 extractRequest.workflowId = workflowUtils.getWorkFlowId();
+                LOG.trace("Triggering extract with {}", Jackson.toJsonString(extractRequest));
                 Promise<String> triggerExtractResult =
                     extractArticlesActivity.invoke(Jackson.toJsonString(extractRequest));
 
+                Promise<String> timer = clock.createTimer(EXTRACTION_TIMEOUT_IN_SECONDS, EXTRACTION_TIMER_CONTEXT);
+
                 // generate ebook
                 Promise<String> triggerGenerateResult =
-                    invokeTriggerGenerate(request, new OrPromise(extractResult, cancelExecution));
+                    invokeTriggerGenerate(request, new OrPromise(extractResult, cancelExecution, timer));
 
                 // send email
                 Promise<String> sendEmail =
@@ -117,30 +128,36 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
     }
 
     @Asynchronous
-    public Promise<String> invokeTriggerGenerate(DeliveryRequest deliveryRequest, OrPromise extractResultsOrCancel)
+    public Promise<String> invokeTriggerGenerate(DeliveryRequest deliveryRequest, OrPromise extractResultsOrCancelOrTimeout)
         throws IOException {
-        if (isExecutionCanceled(extractResultsOrCancel)){
+        if (isExecutionCanceled(extractResultsOrCancelOrTimeout)){
             return Promise.asPromise("canceled");
         }
 
-        Promise<ExtractFinished> extractFinished = getReadyOne(extractResultsOrCancel);
-
         GenerateEbookActivity generateEbookActivity = new GenerateEbookActivity();
-        LOG.trace("Got extract results {}", extractFinished.get());
+        Book book;
+        if (isTimeOut(extractResultsOrCancelOrTimeout)){
+            LOG.trace("Timeout waiting for extraction result after {} seconds", EXTRACTION_TIMEOUT_IN_SECONDS);
+            book = mapDeliveryRequestToBook(deliveryRequest);
 
-        if (!extractFinished.get().success){
-            LOG.error("Error during extracting");
-            throw new RuntimeException("Error during extraction: " +extractFinished.get().error);
+        } else {
+            Promise<ExtractFinished> extractFinished = getReadyOne(extractResultsOrCancelOrTimeout);
+            LOG.trace("Got extract results {}", extractFinished.get());
+
+            if (!extractFinished.get().success){
+                LOG.error("Error during extracting");
+                throw new RuntimeException("Error during extraction: " + extractFinished.get().error);
+            }
+
+            // fetch extract results from S3
+            GetObjectRequest getObjectRequest = new GetObjectRequest("keendly", extractFinished.get().key);
+            S3Object object = s3.getObject(getObjectRequest);
+
+            JavaType type = constructListType(ExtractResult.class);
+            book =
+                mapDeliveryRequestAndExtractResultToBook(deliveryRequest,
+                    mapToOutput(IOUtils.toString(object.getObjectContent()), type));
         }
-
-        // fetch extract results from S3
-        GetObjectRequest getObjectRequest = new GetObjectRequest("keendly", extractFinished.get().key);
-        S3Object object = s3.getObject(getObjectRequest);
-
-        JavaType type = constructListType(ExtractResult.class);
-        Book book =
-            mapDeliveryRequestAndExtractResultToBook(deliveryRequest,
-                mapToOutput(IOUtils.toString(object.getObjectContent()), type));
 
         // store ebook generation request in s3
         String key = storeInS3(Jackson.toJsonString(book));
@@ -152,12 +169,8 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
         String request = Jackson.toJsonString(triggerGenerateRequest);
         LOG.trace("Triggering generate with {}", request);
 
-//        Promise<String> triggerResponse =
-//            generateEbookActivity.invoke(Jackson.toJsonString(request));
-
         Promise<String> triggerResponse =
                     generateEbookActivity.invoke(request);
-
 
         return triggerResponse;
     }
@@ -291,6 +304,15 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
         for (Promise promise : promises.getValues()){
             if (promise != null && promise.isReady() && promise.getDescription() != null &&
                 promise.getDescription().equals(CANCEL_EXECUTION_DESCRIPTION)){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isTimeOut(OrPromise promises){
+        for (Promise promise : promises.getValues()){
+            if (promise.isReady() && EXTRACTION_TIMER_CONTEXT.equals(promise.get())){
                 return true;
             }
         }
