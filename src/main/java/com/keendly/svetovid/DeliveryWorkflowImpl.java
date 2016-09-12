@@ -95,11 +95,11 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
                 Promise<String> triggerExtractResult =
                     extractArticlesActivity.invoke(Jackson.toJsonString(extractRequest));
 
-                Promise<String> timer = clock.createTimer(EXTRACTION_TIMEOUT_IN_SECONDS, EXTRACTION_TIMER_CONTEXT);
+//                Promise<String> timer = clock.createTimer(EXTRACTION_TIMEOUT_IN_SECONDS, EXTRACTION_TIMER_CONTEXT);
 
                 // generate ebook
                 Promise<String> triggerGenerateResult =
-                    invokeTriggerGenerate(request, new OrPromise(extractResult, cancelExecution, timer));
+                    invokeTriggerGenerate(request, new OrPromise(extractResult, cancelExecution));
 
                 // send email
                 Promise<String> sendEmail =
