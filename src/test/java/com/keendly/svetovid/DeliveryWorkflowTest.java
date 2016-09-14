@@ -377,16 +377,27 @@ public class DeliveryWorkflowTest {
     }
 
     @Test
-    @Ignore
-    public void given_generationError_when_deliver_then_retry() throws Exception {
+    public void given_extractionTimeout_when_deliver_then_continue() throws Exception {
 
     }
 
+    @Test
+    @Ignore
+    public void given_extractionError_when_deliver_then_retry() throws Exception {
+        // TODO to be implemented
+    }
+
+    @Test
+    @Ignore
+    public void given_generationError_when_deliver_then_retry() throws Exception {
+        // TODO to be implemented
+    }
 
     @Test
     @Ignore
     public void given_generateRequestTooLong_when_deliver_then_storeInS3() throws Exception {
-        // TODO to be implemented
+        // TODO to be implemented, so far always stores in S3
+        // should be same as for extraction, only if msg is too big
     }
 
     @Test
@@ -427,5 +438,25 @@ public class DeliveryWorkflowTest {
         WorkflowClock clock
             = contextProvider.getDecisionContext().getWorkflowClock();
         return clock.createTimer(seconds);
+    }
+
+    @Test
+    public void testextract(){
+        String taskName = "timerId=" + "123" + ", delaySeconds=" + "600";
+
+        String desc = "createTimer " + taskName;
+
+        System.out.println(extractTimerId(desc));
+    }
+
+    private static String extractTimerId(String desc){
+        String tokens = desc.substring("createTimer".length());
+        for (String token : tokens.trim().split(",")){
+            String[] kv = token.split("=");
+            if ("timerId".equals(kv[0].trim())){
+                return kv[1];
+            }
+        }
+        return null;
     }
 }
