@@ -95,11 +95,11 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
                 Promise<String> triggerExtractResult =
                     extractArticlesActivity.invoke(Jackson.toJsonString(extractRequest));
 
-//                Promise<String> timer = clock.createTimer(EXTRACTION_TIMEOUT_IN_SECONDS, EXTRACTION_TIMER_CONTEXT);
+                Promise timer = clock.createTimer(EXTRACTION_TIMEOUT_IN_SECONDS);
 
                 // generate ebook
                 Promise<String> triggerGenerateResult =
-                    invokeTriggerGenerate(request, new OrPromise(extractResult, cancelExecution));
+                    invokeTriggerGenerate(request, new OrPromise(extractResult, cancelExecution, timer));
 
                 // send email
                 Promise<String> sendEmail =
@@ -131,6 +131,7 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
     public Promise<String> invokeTriggerGenerate(DeliveryRequest deliveryRequest, OrPromise extractResultsOrCancelOrTimeout)
         throws IOException {
         if (isExecutionCanceled(extractResultsOrCancelOrTimeout)){
+            clock.cancelTimer(getTimeOutTask(extractResultsOrCancelOrTimeout));
             return Promise.asPromise("canceled");
         }
 
@@ -139,9 +140,9 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
         if (isTimeOut(extractResultsOrCancelOrTimeout)){
             LOG.trace("Timeout waiting for extraction result after {} seconds", EXTRACTION_TIMEOUT_IN_SECONDS);
             book = mapDeliveryRequestToBook(deliveryRequest);
-
         } else {
             Promise<ExtractFinished> extractFinished = getReadyOne(extractResultsOrCancelOrTimeout);
+            clock.cancelTimer(getTimeOutTask(extractResultsOrCancelOrTimeout));
             LOG.trace("Got extract results {}", extractFinished.get());
 
             if (!extractFinished.get().success){
@@ -311,12 +312,16 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
     }
 
     private boolean isTimeOut(OrPromise promises){
+        return getTimeOutTask(promises).isReady();
+    }
+
+    private Promise getTimeOutTask(OrPromise promises){
         for (Promise promise : promises.getValues()){
-            if (promise.isReady() && EXTRACTION_TIMER_CONTEXT.equals(promise.get())){
-                return true;
+            if (promise.getDescription() != null && promise.getDescription().contains("createTimer")){
+                return promise;
             }
         }
-        return false;
+        return null;
     }
 
     private <T> Promise<T> getReadyOne(OrPromise promises){
