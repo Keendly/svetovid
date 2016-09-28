@@ -129,6 +129,7 @@ public class DeliveryWorkflowMapper {
         attachment.bucket = "keendly";
         attachment.key = generateResult;
         request.attachment = attachment;
+        request.dryRun = deliveryRequest.dryRun;
 
         return request;
     }
@@ -142,6 +143,7 @@ public class DeliveryWorkflowMapper {
         request.date = sendResult.date;
         request.status = sendResult.status.name();
         request.errorDescription = sendResult.errorDescription;
+        request.dryRun = deliveryRequest.dryRun;
 
         return request;
     }

@@ -7,5 +7,6 @@ public class SendRequest {
     public String recipient;
     public String message;
     public Attachment attachment;
+    public boolean dryRun;
 
 }
