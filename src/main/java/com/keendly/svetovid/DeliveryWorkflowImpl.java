@@ -28,6 +28,8 @@ import com.keendly.svetovid.activities.generate.model.Book;
 import com.keendly.svetovid.activities.generate.model.TriggerGenerateRequest;
 import com.keendly.svetovid.activities.send.SendEbookActivity;
 import com.keendly.svetovid.activities.send.model.SendRequest;
+import com.keendly.svetovid.activities.update.UpdateDeliveryActivity;
+import com.keendly.svetovid.activities.update.model.UpdateRequest;
 import com.keendly.svetovid.model.DeliveryItem;
 import com.keendly.svetovid.model.DeliveryRequest;
 import com.keendly.svetovid.s3.S3ClientHolder;
@@ -102,15 +104,13 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
                     invokeTriggerGenerate(request, new OrPromise(extractResult, cancelExecution, timer));
 
                 // send email
-                Promise<String> sendEmail =
+                Promise<String> sendResult =
                     invokeSendEmail(request, new OrPromise(generateResult, cancelExecution));
 
-//                // update delivery
-//                UpdateDeliveryActivity updateDeliveryActivity = new UpdateDeliveryActivity();
-//                Promise<UpdateResult> updateResult =
-//                    updateDeliveryActivity.invoke(
-//                        mapDeliveryRequestAndSendResultToUpdateRequestAsync(request, sendResult));
-//
+                // update delivery
+                Promise<String> updateResult =
+                    invokeUpdateDelivery(request, new OrPromise(sendResult, cancelExecution));
+
 //                setState(updateDeliveryActivity.getCompletedState(), updateResult);
             }
 
@@ -201,7 +201,22 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
         String request = Jackson.toJsonString(sendRequest);
         LOG.trace("Triggering send with {}", request);
 
-        return sendEbookActivity.invoke(Jackson.toJsonString(sendRequest));
+        return sendEbookActivity.invoke(request);
+    }
+
+    @Asynchronous
+    public Promise<String> invokeUpdateDelivery(DeliveryRequest deliveryRequest, OrPromise sendResultOrCancel) {
+        if (isExecutionCanceled(sendResultOrCancel)){
+            return Promise.asPromise("canceled");
+        }
+
+        UpdateDeliveryActivity updateDeliveryActivity = new UpdateDeliveryActivity();
+        UpdateRequest updateRequest = mapDeliveryRequestAndSendResultToUpdateRequest(deliveryRequest);
+
+        String request = Jackson.toJsonString(updateRequest);
+        LOG.trace("Triggering update with {}", request);
+
+        return updateDeliveryActivity.invoke(request);
     }
 
 //    @Asynchronous

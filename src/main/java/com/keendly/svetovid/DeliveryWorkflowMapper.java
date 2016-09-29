@@ -7,7 +7,6 @@ import com.keendly.svetovid.activities.generate.model.Book;
 import com.keendly.svetovid.activities.generate.model.Section;
 import com.keendly.svetovid.activities.send.model.Attachment;
 import com.keendly.svetovid.activities.send.model.SendRequest;
-import com.keendly.svetovid.activities.send.model.SendResult;
 import com.keendly.svetovid.activities.update.model.UpdateRequest;
 import com.keendly.svetovid.model.DeliveryArticle;
 import com.keendly.svetovid.model.DeliveryItem;
@@ -15,9 +14,11 @@ import com.keendly.svetovid.model.DeliveryRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.TimeZone;
 
 public class DeliveryWorkflowMapper {
 
@@ -135,14 +136,17 @@ public class DeliveryWorkflowMapper {
     }
 
     public static UpdateRequest mapDeliveryRequestAndSendResultToUpdateRequest
-        (DeliveryRequest deliveryRequest, SendResult sendResult){
+        (DeliveryRequest deliveryRequest){
 
         UpdateRequest request = new UpdateRequest();
         request.deliveryId = deliveryRequest.id;
         request.userId = deliveryRequest.userId;
-        request.date = sendResult.date;
-        request.status = sendResult.status.name();
-        request.errorDescription = sendResult.errorDescription;
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ");
+        sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+        request.date = sdf.format(new Date());
+//        request.date = sendResult.date;
+//        request.status = sendResult.status.name();
+//        request.error = sendResult.errorDescription;
         request.dryRun = deliveryRequest.dryRun;
 
         return request;
