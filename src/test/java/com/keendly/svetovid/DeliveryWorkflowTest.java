@@ -90,6 +90,7 @@ public class DeliveryWorkflowTest {
             .add("userId", 2)
             .add("email", "contact@keendly.com")
             .add("timestamp", System.currentTimeMillis())
+            .add("dryRun", false)
             .add("items", array()
                 .add(object()
                     .add("feedId", "feed/http://www.fcbarca.com/feed")
@@ -121,6 +122,7 @@ public class DeliveryWorkflowTest {
         LambdaMock velesTrigger = lambdaMock("veles_trigger");
         LambdaMock jariloTrigger = lambdaMock("jariloTrigger");
         LambdaMock perun = lambdaMock("perun_swf");
+        LambdaMock bylun = lambdaMock("bylun");
 
         mockS3Object("messages/blablabla", extractResults.toString(), amazonS3);
 
@@ -187,7 +189,14 @@ public class DeliveryWorkflowTest {
             .add("message", "Enjoy!")
             .add("attachment", object()
                 .add("bucket", "keendly")
-                .add("key", generateFinishedCallback)));
+                .add("key", generateFinishedCallback))
+            .add("dryRun", false));
+
+        // TODO test that 'date' is there too
+        verifyInvokedWith(bylun, object()
+            .add("userId", 2)
+            .add("deliveryId", 1)
+            .add("dryRun", false));
     }
 
     @Test
@@ -426,6 +435,95 @@ public class DeliveryWorkflowTest {
         verifyNotInvoked(veles);
     }
 
+    @Test
+    public void given_dryRun_when_deliver_then_dryRun() throws Exception {
+        String workflowId = "myWorkflowId";
+        String runId = "myRunId";
+
+        String generateMessageKey = "myGenerateMessage";
+
+        // given
+        when(workflowUtils.getWorkFlowId()).thenReturn(workflowId);
+        when(workflowUtils.getRunId()).thenReturn(runId);
+
+        when(messageKeyGenerator.generate()).thenReturn(generateMessageKey);
+
+        JsonObject deliveryRequest = object()
+            .add("id", 1)
+            .add("userId", 2)
+            .add("email", "contact@keendly.com")
+            .add("timestamp", System.currentTimeMillis())
+            .add("dryRun", true)
+            .add("items", array()
+                .add(object()
+                    .add("feedId", "feed/http://www.fcbarca.com/feed")
+                    .add("title", "FCBarca")
+                    .add("includeImages", TRUE)
+                    .add("fullArticle", TRUE)
+                    .add("markAsRead", TRUE)
+                    .add("articles", array()
+                        .add(object()
+                            .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
+                            .add("title", "Pedro: Nie pomyliłem się, odchodząc z Barcelony")
+                            .add("timestamp", 1465584508000L)
+                            .add("author", "Dariusz Maruszczak")
+                            .add("content", "this is the article snippet from the feed")))));
+
+        JsonObject extractFinishedCallback = object()
+            .add("success", true)
+            .add("key", "messages/blablabla");
+
+        JsonArray extractResults = array()
+            .add(
+                object()
+                    .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
+                    .add("text", "this is the article text extracted from website"));
+
+        String generateFinishedCallback
+            = "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi";
+
+        LambdaMock perun = lambdaMock("perun_swf");
+        LambdaMock bylun = lambdaMock("bylun");
+
+        mockS3Object("messages/blablabla", extractResults.toString(), amazonS3);
+
+        // when
+        workflow.deliver(deliveryRequest.toString());
+
+        new Task(delay(1)) {
+            @Override
+            protected void doExecute() throws Throwable {
+                workflow.extractionFinished(extractFinishedCallback.toString());
+            }
+        };
+
+        new Task(delay(2)) {
+            @Override
+            protected void doExecute() throws Throwable {
+                workflow.generationFinished(generateFinishedCallback);
+            }
+        };
+
+        // then
+
+        // check send email got triggered with file returned from generation
+        verifyInvokedWith(perun, object()
+            .add("subject", "Keendly Delivery")
+            .add("sender", "kindle@keendly.com")
+            .add("recipient", "contact@keendly.com")
+            .add("message", "Enjoy!")
+            .add("attachment", object()
+                .add("bucket", "keendly")
+                .add("key", generateFinishedCallback))
+            .add("dryRun", true));
+
+        // TODO test that 'date' is there too
+        verifyInvokedWith(bylun, object()
+            .add("userId", 2)
+            .add("deliveryId", 1)
+            .add("dryRun", true));
+    }
+
     private JsonArray array(){
         return new JsonArray();
     }
@@ -440,23 +538,4 @@ public class DeliveryWorkflowTest {
         return clock.createTimer(seconds);
     }
 
-    @Test
-    public void testextract(){
-        String taskName = "timerId=" + "123" + ", delaySeconds=" + "600";
-
-        String desc = "createTimer " + taskName;
-
-        System.out.println(extractTimerId(desc));
-    }
-
-    private static String extractTimerId(String desc){
-        String tokens = desc.substring("createTimer".length());
-        for (String token : tokens.trim().split(",")){
-            String[] kv = token.split("=");
-            if ("timerId".equals(kv[0].trim())){
-                return kv[1];
-            }
-        }
-        return null;
-    }
 }
