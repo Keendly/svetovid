@@ -15,6 +15,6 @@ public class GenerateEbookActivity
 
     @Override
     protected String getLambdaName() {
-        return "jarilo_trigger2";
+        return "jarilo_trigger";
     }
 }

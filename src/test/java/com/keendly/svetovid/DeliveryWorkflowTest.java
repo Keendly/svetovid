@@ -121,7 +121,7 @@ public class DeliveryWorkflowTest {
             .add("key", "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi");
 
         LambdaMock velesTrigger = lambdaMock("veles_trigger");
-        LambdaMock jariloTrigger = lambdaMock("jarilo_trigger2");
+        LambdaMock jariloTrigger = lambdaMock("jarilo_trigger");
         LambdaMock perun = lambdaMock("perun_swf");
         LambdaMock bylun = lambdaMock("bylun");
 
@@ -256,7 +256,7 @@ public class DeliveryWorkflowTest {
             .add("key", "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi");
 
         LambdaMock velesTrigger = lambdaMock("veles_trigger");
-        LambdaMock jariloTrigger = lambdaMock("jarilo_trigger2");
+        LambdaMock jariloTrigger = lambdaMock("jarilo_trigger");
 
         mockS3Object(extractionResultKey, extractResults.toString(), amazonS3);
 
