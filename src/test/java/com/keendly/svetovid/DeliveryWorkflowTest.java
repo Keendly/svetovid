@@ -116,11 +116,12 @@ public class DeliveryWorkflowTest {
                     .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
                     .add("text", "this is the article text extracted from website"));
 
-        String generateFinishedCallback
-            = "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi";
+        JsonObject generateFinishedCallback = object()
+            .add("success", true)
+            .add("key", "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi");
 
         LambdaMock velesTrigger = lambdaMock("veles_trigger");
-        LambdaMock jariloTrigger = lambdaMock("jariloTrigger");
+        LambdaMock jariloTrigger = lambdaMock("jarilo_trigger2");
         LambdaMock perun = lambdaMock("perun_swf");
         LambdaMock bylun = lambdaMock("bylun");
 
@@ -139,7 +140,7 @@ public class DeliveryWorkflowTest {
         new Task(delay(2)) {
             @Override
             protected void doExecute() throws Throwable {
-                workflow.generationFinished(generateFinishedCallback);
+                workflow.generationFinished(generateFinishedCallback.toString());
             }
         };
 
@@ -179,7 +180,7 @@ public class DeliveryWorkflowTest {
         verifyInvokedWith(jariloTrigger, object()
             .add("workflowId", workflowId)
             .add("runId", runId)
-            .add("content", generateMessageKey));
+            .add("s3Content", generateMessageKey));
 
         // check send email got triggered with file returned from generation
         verifyInvokedWith(perun, object()
@@ -189,7 +190,7 @@ public class DeliveryWorkflowTest {
             .add("message", "Enjoy!")
             .add("attachment", object()
                 .add("bucket", "keendly")
-                .add("key", generateFinishedCallback))
+                .add("key", generateFinishedCallback.get("key")))
             .add("dryRun", false));
 
         // TODO test that 'date' is there too
@@ -250,11 +251,12 @@ public class DeliveryWorkflowTest {
                     .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
                     .add("text", "this is the article text extracted from website"));
 
-        String generateFinishedCallback
-            = "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi";
+        JsonObject generateFinishedCallback = object()
+            .add("success", true)
+            .add("key", "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi");
 
         LambdaMock velesTrigger = lambdaMock("veles_trigger");
-        LambdaMock jariloTrigger = lambdaMock("jariloTrigger");
+        LambdaMock jariloTrigger = lambdaMock("jarilo_trigger2");
 
         mockS3Object(extractionResultKey, extractResults.toString(), amazonS3);
 
@@ -271,7 +273,7 @@ public class DeliveryWorkflowTest {
         new Task(delay(2)) {
             @Override
             protected void doExecute() throws Throwable {
-                workflow.generationFinished(generateFinishedCallback);
+                workflow.generationFinished(generateFinishedCallback.toString());
             }
         };
 
@@ -348,8 +350,9 @@ public class DeliveryWorkflowTest {
                     .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
                     .add("text", "this is the article text extracted from website"));
 
-        String generateFinishedCallback
-            = "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi";
+        JsonObject generateFinishedCallback = object()
+            .add("success", true)
+            .add("key", "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi");
 
         LambdaMock velesTrigger = lambdaMock("veles_trigger");
 
@@ -368,7 +371,7 @@ public class DeliveryWorkflowTest {
         new Task(delay(2)) {
             @Override
             protected void doExecute() throws Throwable {
-                workflow.generationFinished(generateFinishedCallback);
+                workflow.generationFinished(generateFinishedCallback.toString());
             }
         };
 
@@ -479,8 +482,9 @@ public class DeliveryWorkflowTest {
                     .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
                     .add("text", "this is the article text extracted from website"));
 
-        String generateFinishedCallback
-            = "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi";
+        JsonObject generateFinishedCallback = object()
+            .add("success", true)
+            .add("key", "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi");
 
         LambdaMock perun = lambdaMock("perun_swf");
         LambdaMock bylun = lambdaMock("bylun");
@@ -500,7 +504,7 @@ public class DeliveryWorkflowTest {
         new Task(delay(2)) {
             @Override
             protected void doExecute() throws Throwable {
-                workflow.generationFinished(generateFinishedCallback);
+                workflow.generationFinished(generateFinishedCallback.toString());
             }
         };
 
@@ -514,7 +518,7 @@ public class DeliveryWorkflowTest {
             .add("message", "Enjoy!")
             .add("attachment", object()
                 .add("bucket", "keendly")
-                .add("key", generateFinishedCallback))
+                .add("key", generateFinishedCallback.get("key")))
             .add("dryRun", true));
 
         // TODO test that 'date' is there too

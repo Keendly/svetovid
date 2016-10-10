@@ -25,6 +25,7 @@ import com.keendly.svetovid.activities.extract.model.ExtractRequest;
 import com.keendly.svetovid.activities.extract.model.ExtractResult;
 import com.keendly.svetovid.activities.generate.GenerateEbookActivity;
 import com.keendly.svetovid.activities.generate.model.Book;
+import com.keendly.svetovid.activities.generate.model.GenerateFinished;
 import com.keendly.svetovid.activities.generate.model.TriggerGenerateRequest;
 import com.keendly.svetovid.activities.send.SendEbookActivity;
 import com.keendly.svetovid.activities.send.model.SendRequest;
@@ -50,7 +51,7 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
     private static final int REQUEST_MAX_SIZE = 32000;
     private static final int EXTRACTION_TIMEOUT_IN_SECONDS = 10 * 60; // 10minutes
 
-    private final Settable<String> generateResult = new Settable<>();
+    private final Settable<GenerateFinished> generateResult = new Settable<>();
     private final Settable<ExtractFinished> extractResult = new Settable<>();
 
     private DecisionContextProvider contextProvider = new DecisionContextProviderImpl();
@@ -163,7 +164,7 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
         // store ebook generation request in s3
         String key = storeInS3(Jackson.toJsonString(book));
         TriggerGenerateRequest triggerGenerateRequest = new TriggerGenerateRequest();
-        triggerGenerateRequest.content = key;
+        triggerGenerateRequest.s3Content = key;
         triggerGenerateRequest.runId = workflowUtils.getRunId();
         triggerGenerateRequest.workflowId = workflowUtils.getWorkFlowId();
 
@@ -191,12 +192,12 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
         SendEbookActivity sendEbookActivity = new SendEbookActivity();
         LOG.trace("Got generate results {}", generateResult.get());
 
-        if (generateResult.get().contains("ERROR")){
-            throw new RuntimeException("Error generating ebook");
+        if (!generateResult.get().success){
+            throw new RuntimeException("Error generating ebook " + generateResult.get().error);
         }
 
         SendRequest sendRequest = mapDeliveryRequestAndGenerateResultToSendRequest(deliveryRequest,
-            generateResult.get());
+            generateResult.get().key);
 
         String request = Jackson.toJsonString(sendRequest);
         LOG.trace("Triggering send with {}", request);
@@ -265,7 +266,8 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 
     @Override
     public void generationFinished(String generateResult) {
-        this.generateResult.set(generateResult);
+        GenerateFinished generateFinished = Jackson.fromJsonString(generateResult, GenerateFinished.class);
+        this.generateResult.set(generateFinished);
     }
 
     @Override
