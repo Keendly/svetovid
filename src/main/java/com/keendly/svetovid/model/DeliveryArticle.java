@@ -2,6 +2,7 @@ package com.keendly.svetovid.model;
 
 public class DeliveryArticle {
 
+    public String id;
     public String url;
     public String title;
     public Long timestamp;

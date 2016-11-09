@@ -27,6 +27,7 @@ import com.keendly.svetovid.activities.generate.GenerateEbookActivity;
 import com.keendly.svetovid.activities.generate.model.Book;
 import com.keendly.svetovid.activities.generate.model.GenerateFinished;
 import com.keendly.svetovid.activities.generate.model.TriggerGenerateRequest;
+import com.keendly.svetovid.activities.generatelinks.model.GenerateLinksRequest;
 import com.keendly.svetovid.activities.send.SendEbookActivity;
 import com.keendly.svetovid.activities.send.model.SendRequest;
 import com.keendly.svetovid.activities.update.UpdateDeliveryActivity;
@@ -34,6 +35,8 @@ import com.keendly.svetovid.activities.update.model.UpdateRequest;
 import com.keendly.svetovid.model.DeliveryItem;
 import com.keendly.svetovid.model.DeliveryRequest;
 import com.keendly.svetovid.s3.S3ClientHolder;
+import com.keendly.svetovid.utils.Config;
+import com.keendly.svetovid.utils.LambdaInvoker;
 import com.keendly.svetovid.utils.MessageKeyGenerator;
 import com.keendly.svetovid.utils.WorkflowUtils;
 import org.slf4j.Logger;
@@ -47,9 +50,7 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 
     private static final Logger LOG = LoggerFactory.getLogger(DeliveryWorkflowImpl.class);
     private static final String CANCEL_EXECUTION_DESCRIPTION = "cancelExecution";
-    private static final String EXTRACTION_TIMER_CONTEXT = "extractionTimeout";
     private static final int REQUEST_MAX_SIZE = 32000;
-    private static final int EXTRACTION_TIMEOUT_IN_SECONDS = 10 * 60; // 10minutes
 
     private final Settable<GenerateFinished> generateResult = new Settable<>();
     private final Settable<ExtractFinished> extractResult = new Settable<>();
@@ -85,6 +86,9 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
                     return;
                 }
 
+                // generate action links
+                Promise<String> generateLinksResult = invokeGenerateActionLinks(request);
+
                 ExtractRequest extractRequest = extractRequestOptional.get();
                 if (isTooBig(extractRequest)){
                     String key = storeInS3(Jackson.toJsonString(extractRequest.content));
@@ -98,7 +102,7 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
                 Promise<String> triggerExtractResult =
                     extractArticlesActivity.invoke(Jackson.toJsonString(extractRequest));
 
-                Promise timer = clock.createTimer(EXTRACTION_TIMEOUT_IN_SECONDS);
+                Promise timer = clock.createTimer(Config.getExtractionTimeout());
 
                 // generate ebook
                 Promise<String> triggerGenerateResult =
@@ -139,7 +143,7 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
         GenerateEbookActivity generateEbookActivity = new GenerateEbookActivity();
         Book book;
         if (isTimeOut(extractResultsOrCancelOrTimeout)){
-            LOG.trace("Timeout waiting for extraction result after {} seconds", EXTRACTION_TIMEOUT_IN_SECONDS);
+            LOG.trace("Timeout waiting for extraction result after {} seconds", Config.getExtractionTimeout());
             book = mapDeliveryRequestToBook(deliveryRequest);
         } else {
             Promise<ExtractFinished> extractFinished = getReadyOne(extractResultsOrCancelOrTimeout);
@@ -218,6 +222,12 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
         LOG.trace("Triggering update with {}", request);
 
         return updateDeliveryActivity.invoke(request);
+    }
+
+    public Promise<String> invokeGenerateActionLinks(DeliveryRequest deliveryRequest){
+        GenerateLinksRequest generateLinksRequest = mapDeliveryRequestToGenerateLinksRequest(deliveryRequest);
+        LOG.trace("Triggering generate links with {}", generateLinksRequest);
+        return LambdaInvoker.invoke("action-api", Jackson.toJsonString(generateLinksRequest));
     }
 
 //    @Asynchronous

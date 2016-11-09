@@ -18,6 +18,7 @@ import com.amazonaws.util.json.Jackson;
 import com.eclipsesource.json.JsonArray;
 import com.eclipsesource.json.JsonObject;
 import com.keendly.svetovid.s3.S3ClientHolder;
+import com.keendly.svetovid.utils.Config;
 import com.keendly.svetovid.utils.MessageKeyGenerator;
 import com.keendly.svetovid.utils.WorkflowUtils;
 import com.keendly.utils.mock.LambdaMock;
@@ -59,6 +60,8 @@ public class DeliveryWorkflowTest {
         initInvoker();
 
         initMocks();
+
+        Config.reset();
     }
 
     private void initMocks(){
@@ -390,7 +393,95 @@ public class DeliveryWorkflowTest {
 
     @Test
     public void given_extractionTimeout_when_deliver_then_continue() throws Exception {
+        String workflowId = "myWorkflowId";
+        String runId = "myRunId";
 
+        String generateMessageKey = "myGenerateMessage";
+
+        // given
+        when(workflowUtils.getWorkFlowId()).thenReturn(workflowId);
+        when(workflowUtils.getRunId()).thenReturn(runId);
+
+        when(messageKeyGenerator.generate()).thenReturn(generateMessageKey);
+
+        // timeout extraction after 1 sec
+        Config.setExtractionTimeout(1);
+
+        JsonObject deliveryRequest = object()
+            .add("id", 1)
+            .add("userId", 2)
+            .add("email", "contact@keendly.com")
+            .add("timestamp", System.currentTimeMillis())
+            .add("dryRun", false)
+            .add("items", array()
+                .add(object()
+                    .add("feedId", "feed/http://www.fcbarca.com/feed")
+                    .add("title", "FCBarca")
+                    .add("includeImages", TRUE)
+                    .add("fullArticle", TRUE)
+                    .add("markAsRead", TRUE)
+                    .add("articles", array()
+                        .add(object()
+                            .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
+                            .add("title", "Pedro: Nie pomyliłem się, odchodząc z Barcelony")
+                            .add("timestamp", 1465584508000L)
+                            .add("author", "Dariusz Maruszczak")
+                            .add("content", "this is the article snippet from the feed")))));
+
+        JsonObject generateFinishedCallback = object()
+            .add("success", true)
+            .add("key", "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi");
+
+        LambdaMock velesTrigger = lambdaMock("veles_trigger");
+        LambdaMock jariloTrigger = lambdaMock("jarilo_trigger");
+
+        // when
+        workflow.deliver(deliveryRequest.toString());
+
+        new Task(delay(2)) {
+            @Override
+            protected void doExecute() throws Throwable {
+                workflow.generationFinished(generateFinishedCallback.toString());
+            }
+        };
+
+        // then
+        verifyInvokedWith(velesTrigger, object()
+            .add("workflowId", workflowId)
+            .add("runId", runId)
+            .add("content", array()
+                .add(object()
+                    .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
+                    .add("withImages", TRUE)
+                    .add("withMetadata", FALSE))));
+
+        JsonObject book = object()
+            .add("title", "Keendly Feeds")
+            .add("language", "en-GB")
+            .add("creator", "Keendly")
+            .add("subject", "News")
+            .add("sections", array()
+                .add(object()
+                    .add("title", "FCBarca")
+                    .add("articles", array()
+                        .add(object()
+                            .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
+                            .add("author", "Dariusz Maruszczak")
+                            .add("title", "Pedro: Nie pomyliłem się, odchodząc z Barcelony")
+                            .add("content", "this is the article snippet from the feed")
+                            .add("date", 1465584508000L)))));
+
+        // after generation triggered, check if correct file got uploaded to S3
+        executeAfterInvoked(jariloTrigger, () -> {
+            ArgumentCaptor<String> savedCaptor = ArgumentCaptor.forClass(String.class);
+            verify(amazonS3).putObject(eq("keendly"), eq(generateMessageKey), savedCaptor.capture());
+            JSONAssert.assertEquals(book.toString(), savedCaptor.getValue(), JSONCompareMode.LENIENT);
+        });
+
+        verifyInvokedWith(jariloTrigger, object()
+            .add("workflowId", workflowId)
+            .add("runId", runId)
+            .add("s3Content", generateMessageKey));
     }
 
     @Test

@@ -5,6 +5,8 @@ import com.keendly.svetovid.activities.extract.model.ExtractResult;
 import com.keendly.svetovid.activities.generate.model.Article;
 import com.keendly.svetovid.activities.generate.model.Book;
 import com.keendly.svetovid.activities.generate.model.Section;
+import com.keendly.svetovid.activities.generatelinks.model.GenerateLinksArticle;
+import com.keendly.svetovid.activities.generatelinks.model.GenerateLinksRequest;
 import com.keendly.svetovid.activities.send.model.Attachment;
 import com.keendly.svetovid.activities.send.model.SendRequest;
 import com.keendly.svetovid.activities.update.model.UpdateRequest;
@@ -15,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -149,6 +152,20 @@ public class DeliveryWorkflowMapper {
 //        request.error = sendResult.errorDescription;
         request.dryRun = deliveryRequest.dryRun;
 
+        return request;
+    }
+
+    public static GenerateLinksRequest mapDeliveryRequestToGenerateLinksRequest(DeliveryRequest deliveryRequest){
+        List<GenerateLinksArticle> articles = new ArrayList<>();
+        for (DeliveryItem deliveryItem : deliveryRequest.items){
+            for (DeliveryArticle deliveryArticle : deliveryItem.articles){
+                GenerateLinksArticle a = new GenerateLinksArticle();
+                a.id = deliveryArticle.id;
+                articles.add(a);
+            }
+        }
+        GenerateLinksRequest request = new GenerateLinksRequest();
+        request.articles = articles;
         return request;
     }
 }
