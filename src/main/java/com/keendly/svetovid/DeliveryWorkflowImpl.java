@@ -28,6 +28,7 @@ import com.keendly.svetovid.activities.generate.model.Book;
 import com.keendly.svetovid.activities.generate.model.GenerateFinished;
 import com.keendly.svetovid.activities.generate.model.TriggerGenerateRequest;
 import com.keendly.svetovid.activities.generatelinks.model.GenerateLinksRequest;
+import com.keendly.svetovid.activities.generatelinks.model.GenerateLinksResponse;
 import com.keendly.svetovid.activities.send.SendEbookActivity;
 import com.keendly.svetovid.activities.send.model.SendRequest;
 import com.keendly.svetovid.activities.update.UpdateDeliveryActivity;
@@ -106,7 +107,8 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 
                 // generate ebook
                 Promise<String> triggerGenerateResult =
-                    invokeTriggerGenerate(request, new OrPromise(extractResult, cancelExecution, timer));
+                    invokeTriggerGenerate(request, new OrPromise(extractResult, cancelExecution, timer),
+                        new OrPromise(generateLinksResult, cancelExecution));
 
                 // send email
                 Promise<String> sendResult =
@@ -133,7 +135,8 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
     }
 
     @Asynchronous
-    public Promise<String> invokeTriggerGenerate(DeliveryRequest deliveryRequest, OrPromise extractResultsOrCancelOrTimeout)
+    public Promise<String> invokeTriggerGenerate(DeliveryRequest deliveryRequest,
+        OrPromise extractResultsOrCancelOrTimeout, OrPromise generateLinksResultOrCancel)
         throws IOException {
         if (isExecutionCanceled(extractResultsOrCancelOrTimeout)){
             clock.cancelTimer(getTimeOutTask(extractResultsOrCancelOrTimeout));
@@ -164,6 +167,9 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
                 mapDeliveryRequestAndExtractResultToBook(deliveryRequest,
                     mapToOutput(IOUtils.toString(object.getObjectContent()), type));
         }
+
+        Promise<String> generatedLinks = getReadyOne(generateLinksResultOrCancel);
+        book = addActionLinksToBook(book, mapToOutput(generatedLinks.get(), GenerateLinksResponse.class));
 
         // store ebook generation request in s3
         String key = storeInS3(Jackson.toJsonString(book));
@@ -301,6 +307,9 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
     }
 
     protected <T> T mapToOutput(String s, Class<T> clazz){
+        if (s == null){
+            return null;
+        }
         ObjectMapper mapper = new ObjectMapper();
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         try {
@@ -359,4 +368,4 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
         }
         return null;
     }
-}
+}«→→→→→→→→→→→→→→→→→→→→→→→→↔↔↔→'''''''''j '

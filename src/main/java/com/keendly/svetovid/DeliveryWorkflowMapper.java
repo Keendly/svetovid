@@ -5,8 +5,10 @@ import com.keendly.svetovid.activities.extract.model.ExtractResult;
 import com.keendly.svetovid.activities.generate.model.Article;
 import com.keendly.svetovid.activities.generate.model.Book;
 import com.keendly.svetovid.activities.generate.model.Section;
+import com.keendly.svetovid.activities.generatelinks.model.ActionLink;
 import com.keendly.svetovid.activities.generatelinks.model.GenerateLinksArticle;
 import com.keendly.svetovid.activities.generatelinks.model.GenerateLinksRequest;
+import com.keendly.svetovid.activities.generatelinks.model.GenerateLinksResponse;
 import com.keendly.svetovid.activities.send.model.Attachment;
 import com.keendly.svetovid.activities.send.model.SendRequest;
 import com.keendly.svetovid.activities.update.model.UpdateRequest;
@@ -19,7 +21,9 @@ import org.slf4j.LoggerFactory;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.TimeZone;
 
@@ -69,6 +73,7 @@ public class DeliveryWorkflowMapper {
 
             for (DeliveryArticle article : item.articles){
                 Article bookArticle = new Article();
+                bookArticle.id = article.id;
                 bookArticle.title = article.title;
                 bookArticle.author = article.author;
                 bookArticle.date  = article.timestamp != null ? new Date(article.timestamp) : null;
@@ -81,6 +86,22 @@ public class DeliveryWorkflowMapper {
                 section.articles.add(bookArticle);
             }
             book.sections.add(section);
+        }
+        return book;
+    }
+
+    public static Book addActionLinksToBook(Book book, GenerateLinksResponse generateLinksResponse){
+        if (generateLinksResponse == null || generateLinksResponse.links == null){
+            return book;
+        }
+        for (Section s : book.sections){
+            for (Article a : s.articles){
+                if (generateLinksResponse.links.containsKey(a.id)){
+                    for (ActionLink link : generateLinksResponse.links.get(a.id)){
+                        a.actions.put(link.action, link.link);
+                    }
+                }
+            }
         }
         return book;
     }
@@ -156,12 +177,16 @@ public class DeliveryWorkflowMapper {
     }
 
     public static GenerateLinksRequest mapDeliveryRequestToGenerateLinksRequest(DeliveryRequest deliveryRequest){
-        List<GenerateLinksArticle> articles = new ArrayList<>();
+        Map<String, List<GenerateLinksArticle>> articles = new HashMap<>();
         for (DeliveryItem deliveryItem : deliveryRequest.items){
             for (DeliveryArticle deliveryArticle : deliveryItem.articles){
+                List<GenerateLinksArticle> links = new ArrayList<>();
                 GenerateLinksArticle a = new GenerateLinksArticle();
-                a.id = deliveryArticle.id;
-                articles.add(a);
+                a.userId = deliveryRequest.userId;
+                a.operation = deliveryItem.markAsRead ? "keep_unread" : "mark_as_read";
+                a.title = deliveryArticle.title;
+                links.add(a);
+                articles.put(deliveryArticle.id, links);
             }
         }
         GenerateLinksRequest request = new GenerateLinksRequest();

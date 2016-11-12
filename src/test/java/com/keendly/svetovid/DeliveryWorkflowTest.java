@@ -103,6 +103,7 @@ public class DeliveryWorkflowTest {
                     .add("markAsRead", TRUE)
                     .add("articles", array()
                         .add(object()
+                            .add("id", "1232ca7865")
                             .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
                             .add("title", "Pedro: Nie pomyliłem się, odchodząc z Barcelony")
                             .add("timestamp", 1465584508000L)
@@ -119,14 +120,25 @@ public class DeliveryWorkflowTest {
                     .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
                     .add("text", "this is the article text extracted from website"));
 
+        JsonObject actionLinks = object()
+            .add("links", object()
+                .add("1232ca7865", array()
+                    .add(object()
+                        .add("action", "keep_unread")
+                        .add("link", "http://api.keendly.com/action?a=blabla"))
+                    ));
+
         JsonObject generateFinishedCallback = object()
             .add("success", true)
             .add("key", "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi");
 
         LambdaMock velesTrigger = lambdaMock("veles_trigger");
         LambdaMock jariloTrigger = lambdaMock("jarilo_trigger");
+        LambdaMock action = lambdaMock("action-api");
         LambdaMock perun = lambdaMock("perun_swf");
         LambdaMock bylun = lambdaMock("bylun");
+
+        whenInvoked(action).thenReturn(actionLinks);
 
         mockS3Object("messages/blablabla", extractResults.toString(), amazonS3);
 
@@ -167,6 +179,7 @@ public class DeliveryWorkflowTest {
                         .add("title", "FCBarca")
                         .add("articles", array()
                             .add(object()
+                                .add("id", "1232ca7865")
                                 .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
                                 .add("author", "Dariusz Maruszczak")
                                 .add("title", "Pedro: Nie pomyliłem się, odchodząc z Barcelony")
@@ -179,6 +192,14 @@ public class DeliveryWorkflowTest {
             verify(amazonS3).putObject(eq("keendly"), eq(generateMessageKey), savedCaptor.capture());
             JSONAssert.assertEquals(book.toString(), savedCaptor.getValue(), JSONCompareMode.LENIENT);
         });
+
+        verifyInvokedWith(action, object()
+            .add("articles", object()
+                .add("1232ca7865", array()
+                    .add(object()
+                        .add("userId", 2)
+                        .add("title", "Pedro: Nie pomyliłem się, odchodząc z Barcelony")
+                        .add("operation", "keep_unread")))));
 
         verifyInvokedWith(jariloTrigger, object()
             .add("workflowId", workflowId)
@@ -227,6 +248,7 @@ public class DeliveryWorkflowTest {
                 .add("markAsRead", TRUE)
                 .add("articles", array()
                     .add(object()
+                        .add("id", "123abc")
                         .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
                         .add("title", "Pedro: Nie pomyliłem się, odchodząc z Barcelony")
                         .add("timestamp", 1465584508000L)
@@ -254,12 +276,23 @@ public class DeliveryWorkflowTest {
                     .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
                     .add("text", "this is the article text extracted from website"));
 
+        JsonObject actionLinks = object()
+            .add("links", object()
+                .add("1232ca7865", array()
+                    .add(object()
+                        .add("action", "keep_unread")
+                        .add("link", "http://api.keendly.com/action?a=blabla"))
+                ));
+
         JsonObject generateFinishedCallback = object()
             .add("success", true)
             .add("key", "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi");
 
+        LambdaMock action = lambdaMock("action-api");
         LambdaMock velesTrigger = lambdaMock("veles_trigger");
         LambdaMock jariloTrigger = lambdaMock("jarilo_trigger");
+
+        whenInvoked(action).thenReturn(actionLinks);
 
         mockS3Object(extractionResultKey, extractResults.toString(), amazonS3);
 
@@ -300,6 +333,7 @@ public class DeliveryWorkflowTest {
                     .add("title", "FCBarca")
                     .add("articles", array()
                         .add(object()
+                            .add("id", "123abc")
                             .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
                             .add("author", "Dariusz Maruszczak")
                             .add("title", "Pedro: Nie pomyliłem się, odchodząc z Barcelony")
@@ -356,6 +390,8 @@ public class DeliveryWorkflowTest {
         JsonObject generateFinishedCallback = object()
             .add("success", true)
             .add("key", "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi");
+
+        LambdaMock action = lambdaMock("action-api");
 
         LambdaMock velesTrigger = lambdaMock("veles_trigger");
 
@@ -422,6 +458,7 @@ public class DeliveryWorkflowTest {
                     .add("markAsRead", TRUE)
                     .add("articles", array()
                         .add(object()
+                            .add("id", "123abc")
                             .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
                             .add("title", "Pedro: Nie pomyliłem się, odchodząc z Barcelony")
                             .add("timestamp", 1465584508000L)
@@ -465,6 +502,7 @@ public class DeliveryWorkflowTest {
                     .add("title", "FCBarca")
                     .add("articles", array()
                         .add(object()
+                            .add("id", "123abc")
                             .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
                             .add("author", "Dariusz Maruszczak")
                             .add("title", "Pedro: Nie pomyliłem się, odchodząc z Barcelony")
@@ -557,6 +595,7 @@ public class DeliveryWorkflowTest {
                     .add("markAsRead", TRUE)
                     .add("articles", array()
                         .add(object()
+                            .add("id", "123abc")
                             .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
                             .add("title", "Pedro: Nie pomyliłem się, odchodząc z Barcelony")
                             .add("timestamp", 1465584508000L)
