@@ -18,7 +18,7 @@ public class MockedLambdaFunctionInvoker implements AsyncTestLambdaFunctionInvok
             return mock.getStubbedResponse(input);
         }
 
-        return null;
+        throw new RuntimeException("Function not found: " + functionName);
     }
 
     private boolean isMocked(String functionName){

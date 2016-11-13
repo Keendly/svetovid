@@ -130,6 +130,7 @@ public class DeliveryWorkflowMapper {
 
             for (DeliveryArticle article : item.articles){
                 Article bookArticle = new Article();
+                bookArticle.id = article.id;
                 bookArticle.title = article.title;
                 bookArticle.author = article.author;
                 bookArticle.date  = article.timestamp != null ? new Date(article.timestamp) : null;

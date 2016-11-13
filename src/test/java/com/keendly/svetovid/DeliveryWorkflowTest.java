@@ -184,7 +184,9 @@ public class DeliveryWorkflowTest {
                                 .add("author", "Dariusz Maruszczak")
                                 .add("title", "Pedro: Nie pomyliłem się, odchodząc z Barcelony")
                                 .add("content", "this is the article text extracted from website")
-                                .add("date", 1465584508000L)))));
+                                .add("date", 1465584508000L)
+                                .add("actions", object()
+                                    .add("keep_unread", "http://api.keendly.com/action?a=blabla"))))));
 
         // after generation triggered, check if correct file got uploaded to S3
         executeAfterInvoked(jariloTrigger, () -> {
@@ -291,6 +293,8 @@ public class DeliveryWorkflowTest {
         LambdaMock action = lambdaMock("action-api");
         LambdaMock velesTrigger = lambdaMock("veles_trigger");
         LambdaMock jariloTrigger = lambdaMock("jarilo_trigger");
+        LambdaMock perun = lambdaMock("perun_swf");
+        LambdaMock bylun = lambdaMock("bylun");
 
         whenInvoked(action).thenReturn(actionLinks);
 
@@ -391,11 +395,24 @@ public class DeliveryWorkflowTest {
             .add("success", true)
             .add("key", "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi");
 
-        LambdaMock action = lambdaMock("action-api");
+        JsonObject actionLinks = object()
+            .add("links", object()
+                .add("1232ca7865", array()
+                    .add(object()
+                        .add("action", "keep_unread")
+                        .add("link", "http://api.keendly.com/action?a=blabla"))
+                ));
 
+        LambdaMock action = lambdaMock("action-api");
         LambdaMock velesTrigger = lambdaMock("veles_trigger");
+        LambdaMock jariloTrigger = lambdaMock("jarilo_trigger");
+        LambdaMock perun = lambdaMock("perun_swf");
+        LambdaMock bylun = lambdaMock("bylun");
+
 
         mockS3Object(extractionResultKey, extractResults.toString(), amazonS3);
+
+        whenInvoked(action).thenReturn(actionLinks);
 
         // when
         workflow.deliver(deliveryRequest.toString());
@@ -458,7 +475,7 @@ public class DeliveryWorkflowTest {
                     .add("markAsRead", TRUE)
                     .add("articles", array()
                         .add(object()
-                            .add("id", "123abc")
+                            .add("id", "1232ca7865")
                             .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
                             .add("title", "Pedro: Nie pomyliłem się, odchodząc z Barcelony")
                             .add("timestamp", 1465584508000L)
@@ -469,8 +486,21 @@ public class DeliveryWorkflowTest {
             .add("success", true)
             .add("key", "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi");
 
+        JsonObject actionLinks = object()
+            .add("links", object()
+                .add("1232ca7865", array()
+                    .add(object()
+                        .add("action", "keep_unread")
+                        .add("link", "http://api.keendly.com/action?a=blabla"))
+                ));
+
         LambdaMock velesTrigger = lambdaMock("veles_trigger");
         LambdaMock jariloTrigger = lambdaMock("jarilo_trigger");
+        LambdaMock action = lambdaMock("action-api");
+        LambdaMock perun = lambdaMock("perun_swf");
+        LambdaMock bylun = lambdaMock("bylun");
+
+        whenInvoked(action).thenReturn(actionLinks);
 
         // when
         workflow.deliver(deliveryRequest.toString());
@@ -502,7 +532,7 @@ public class DeliveryWorkflowTest {
                     .add("title", "FCBarca")
                     .add("articles", array()
                         .add(object()
-                            .add("id", "123abc")
+                            .add("id", "1232ca7865")
                             .add("url", "http://www.fcbarca.com/70699-pedro-nie-pomylilem-sie-odchodzac-z-barcelony.html")
                             .add("author", "Dariusz Maruszczak")
                             .add("title", "Pedro: Nie pomyliłem się, odchodząc z Barcelony")
@@ -616,10 +646,23 @@ public class DeliveryWorkflowTest {
             .add("success", true)
             .add("key", "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi");
 
+        JsonObject actionLinks = object()
+            .add("links", object()
+                .add("1232ca7865", array()
+                    .add(object()
+                        .add("action", "keep_unread")
+                        .add("link", "http://api.keendly.com/action?a=blabla"))
+                ));
+
+        LambdaMock velesTrigger = lambdaMock("veles_trigger");
+        LambdaMock jariloTrigger = lambdaMock("jarilo_trigger");
+        LambdaMock action = lambdaMock("action-api");
         LambdaMock perun = lambdaMock("perun_swf");
         LambdaMock bylun = lambdaMock("bylun");
 
         mockS3Object("messages/blablabla", extractResults.toString(), amazonS3);
+
+        whenInvoked(action).thenReturn(actionLinks);
 
         // when
         workflow.deliver(deliveryRequest.toString());
