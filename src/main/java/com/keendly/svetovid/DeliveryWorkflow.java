@@ -13,7 +13,7 @@ import java.io.IOException;
                              defaultTaskStartToCloseTimeoutSeconds = 300) // 10 minutes
 public interface DeliveryWorkflow {
 
-    @Execute(version = "1.0")
+    @Execute(version = "1.1")
     void deliver(String deliveryRequest) throws IOException;
 
     @Signal
