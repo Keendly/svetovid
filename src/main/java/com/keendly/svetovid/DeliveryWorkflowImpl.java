@@ -27,6 +27,7 @@ import com.keendly.svetovid.activities.generate.GenerateEbookActivity;
 import com.keendly.svetovid.activities.generate.model.Book;
 import com.keendly.svetovid.activities.generate.model.GenerateFinished;
 import com.keendly.svetovid.activities.generate.model.TriggerGenerateRequest;
+import com.keendly.svetovid.activities.generatelinks.model.ActionLink;
 import com.keendly.svetovid.activities.generatelinks.model.GenerateLinksRequest;
 import com.keendly.svetovid.activities.generatelinks.model.GenerateLinksResponse;
 import com.keendly.svetovid.activities.send.SendEbookActivity;
@@ -45,6 +46,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class DeliveryWorkflowImpl implements DeliveryWorkflow {
@@ -100,6 +102,7 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
                 extractRequest.runId = workflowUtils.getRunId();
                 extractRequest.workflowId = workflowUtils.getWorkFlowId();
                 LOG.trace("Triggering extract with {}", Jackson.toJsonString(extractRequest));
+
                 Promise<String> triggerExtractResult =
                     extractArticlesActivity.invoke(Jackson.toJsonString(extractRequest));
 
@@ -169,7 +172,19 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
         }
 
         Promise<String> generatedLinks = getReadyOne(generateLinksResultOrCancel);
-        book = addActionLinksToBook(book, mapToOutput(generatedLinks.get(), GenerateLinksResponse.class));
+        GenerateLinksResponse generateLinksResponse =  mapToOutput(generatedLinks.get(), GenerateLinksResponse.class);
+        if (generateLinksResponse.s3Links != null){
+            GetObjectRequest getObjectRequest = new GetObjectRequest(
+                generateLinksResponse.s3Links.bucket, generateLinksResponse.s3Links.key);
+            S3Object object = s3.getObject(getObjectRequest);
+
+            Map<String, List<ActionLink>> links = new ObjectMapper()
+                .readValue(IOUtils.toString(object.getObjectContent()).getBytes("UTF8"),
+                    new TypeReference< Map<String, List<ActionLink>>>(){});
+
+            generateLinksResponse.links = links;
+        }
+        book = addActionLinksToBook(book, generateLinksResponse);
 
         // store ebook generation request in s3
         String key = storeInS3(Jackson.toJsonString(book));

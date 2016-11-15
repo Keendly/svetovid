@@ -5,6 +5,7 @@ import com.amazonaws.services.simpleworkflow.flow.annotations.GetState;
 import com.amazonaws.services.simpleworkflow.flow.annotations.Signal;
 import com.amazonaws.services.simpleworkflow.flow.annotations.Workflow;
 import com.amazonaws.services.simpleworkflow.flow.annotations.WorkflowRegistrationOptions;
+import com.keendly.svetovid.utils.Config;
 
 import java.io.IOException;
 
@@ -13,7 +14,7 @@ import java.io.IOException;
                              defaultTaskStartToCloseTimeoutSeconds = 300) // 10 minutes
 public interface DeliveryWorkflow {
 
-    @Execute(version = "1.1")
+    @Execute(version = Config.VERSION)
     void deliver(String deliveryRequest) throws IOException;
 
     @Signal

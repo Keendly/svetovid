@@ -8,6 +8,7 @@ import com.amazonaws.services.simpleworkflow.AmazonSimpleWorkflowClient;
 import com.amazonaws.services.simpleworkflow.flow.WorkflowWorker;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
+import com.keendly.svetovid.utils.Config;
 
 import java.util.concurrent.TimeUnit;
 
@@ -29,7 +30,7 @@ public class Decider {
 
         AmazonSimpleWorkflow swfClient = getSWFClient(arguments.profile, arguments.region);
 
-        final WorkflowWorker worker = new WorkflowWorker(swfClient, DOMAIN, DECISION_TASK_LIST);
+        final WorkflowWorker worker = new WorkflowWorker(swfClient, DOMAIN, DECISION_TASK_LIST + Config.VERSION);
         worker.addWorkflowImplementationType(DeliveryWorkflowImpl.class);
         worker.start();
 

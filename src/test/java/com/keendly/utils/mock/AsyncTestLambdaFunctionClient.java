@@ -10,6 +10,11 @@ public class AsyncTestLambdaFunctionClient extends TestLambdaFunctionClient {
     private MockedLambdaFunctionInvoker invoker = new MockedLambdaFunctionInvoker();
 
     @Override
+    public Promise<String> scheduleLambdaFunction(String name, String input) {
+        return scheduleLambdaFunction(name, input, 300);
+    }
+
+    @Override
     public Promise<String> scheduleLambdaFunction(String name, String input,
         long timeoutSeconds) {
         final String id = decisionContextProvider.getDecisionContext()
