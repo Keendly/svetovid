@@ -100,7 +100,7 @@ public class DeliveryWorkflowTest {
                     .add("title", "FCBarca")
                     .add("includeImages", TRUE)
                     .add("fullArticle", TRUE)
-                    .add("markAsRead", TRUE)
+                    .add("markAsRead", FALSE)
                     .add("articles", array()
                         .add(object()
                             .add("id", "1232ca7865")
@@ -124,7 +124,7 @@ public class DeliveryWorkflowTest {
             .add("links", object()
                 .add("1232ca7865", array()
                     .add(object()
-                        .add("action", "keep_unread")
+                        .add("action", "mark_as_read")
                         .add("link", "http://api.keendly.com/action?a=blabla"))
                     ));
 
@@ -186,7 +186,7 @@ public class DeliveryWorkflowTest {
                                 .add("content", "this is the article text extracted from website")
                                 .add("date", 1465584508000L)
                                 .add("actions", object()
-                                    .add("keep_unread", "http://api.keendly.com/action?a=blabla"))))));
+                                    .add("mark_as_read", "http://api.keendly.com/action?a=blabla"))))));
 
         // after generation triggered, check if correct file got uploaded to S3
         executeAfterInvoked(jariloTrigger, () -> {
@@ -201,7 +201,7 @@ public class DeliveryWorkflowTest {
                     .add(object()
                         .add("userId", 2)
                         .add("title", "Pedro: Nie pomyliłem się, odchodząc z Barcelony")
-                        .add("operation", "keep_unread")))));
+                        .add("operation", "mark_as_read")))));
 
         verifyInvokedWith(jariloTrigger, object()
             .add("workflowId", workflowId)
@@ -647,12 +647,7 @@ public class DeliveryWorkflowTest {
             .add("key", "ebooks/86a80e65-02be-480e-81e3-629053f2b66a/keendly.mobi");
 
         JsonObject actionLinks = object()
-            .add("links", object()
-                .add("1232ca7865", array()
-                    .add(object()
-                        .add("action", "keep_unread")
-                        .add("link", "http://api.keendly.com/action?a=blabla"))
-                ));
+            .add("links", object());
 
         LambdaMock velesTrigger = lambdaMock("veles_trigger");
         LambdaMock jariloTrigger = lambdaMock("jarilo_trigger");
@@ -693,6 +688,10 @@ public class DeliveryWorkflowTest {
                 .add("bucket", "keendly")
                 .add("key", generateFinishedCallback.get("key")))
             .add("dryRun", true));
+
+        // verify no action links created
+        verifyInvokedWith(action, object()
+            .add("articles", object()));
 
         // TODO test that 'date' is there too
         verifyInvokedWith(bylun, object()
@@ -818,7 +817,6 @@ public class DeliveryWorkflowTest {
             JSONAssert.assertEquals(book.toString(), savedCaptor.getValue(), JSONCompareMode.LENIENT);
         });
     }
-
 
     private JsonArray array(){
         return new JsonArray();

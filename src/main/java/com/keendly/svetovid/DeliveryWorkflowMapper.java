@@ -180,11 +180,16 @@ public class DeliveryWorkflowMapper {
     public static GenerateLinksRequest mapDeliveryRequestToGenerateLinksRequest(DeliveryRequest deliveryRequest){
         Map<String, List<GenerateLinksArticle>> articles = new HashMap<>();
         for (DeliveryItem deliveryItem : deliveryRequest.items){
+            if (deliveryItem.markAsRead){
+                // if whole feed is gonna be marked as read, we cannot make individual articles unread
+                continue;
+            }
+
             for (DeliveryArticle deliveryArticle : deliveryItem.articles){
                 List<GenerateLinksArticle> links = new ArrayList<>();
                 GenerateLinksArticle a = new GenerateLinksArticle();
                 a.userId = deliveryRequest.userId;
-                a.operation = deliveryItem.markAsRead ? "keep_unread" : "mark_as_read";
+                a.operation = "mark_as_read";
                 a.title = deliveryArticle.title;
                 links.add(a);
                 articles.put(deliveryArticle.id, links);
