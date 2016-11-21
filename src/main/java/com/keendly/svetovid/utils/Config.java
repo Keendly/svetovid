@@ -2,7 +2,7 @@ package com.keendly.svetovid.utils;
 
 public class Config {
 
-    public static final String VERSION = "1.2";
+    public static final String VERSION = "1.3";
 
     private final static int EXTRACTION_TIMEOUT_IN_SECONDS = 10 * 60; // 10minutes
 

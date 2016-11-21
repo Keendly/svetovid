@@ -91,6 +91,7 @@ public class DeliveryWorkflowTest {
         JsonObject deliveryRequest = object()
             .add("id", 1)
             .add("userId", 2)
+            .add("provider", "INOREADER")
             .add("email", "contact@keendly.com")
             .add("timestamp", System.currentTimeMillis())
             .add("dryRun", false)
@@ -126,6 +127,9 @@ public class DeliveryWorkflowTest {
                     .add(object()
                         .add("action", "mark_as_read")
                         .add("link", "http://api.keendly.com/action?a=blabla"))
+                    .add(object()
+                        .add("action", "save_article")
+                        .add("link", "http://api.keendly.com/action?a=lala"))
                     ));
 
         JsonObject generateFinishedCallback = object()
@@ -186,6 +190,7 @@ public class DeliveryWorkflowTest {
                                 .add("content", "this is the article text extracted from website")
                                 .add("date", 1465584508000L)
                                 .add("actions", object()
+                                    .add("save_article", "http://api.keendly.com/action?a=lala")
                                     .add("mark_as_read", "http://api.keendly.com/action?a=blabla"))))));
 
         // after generation triggered, check if correct file got uploaded to S3
@@ -196,10 +201,14 @@ public class DeliveryWorkflowTest {
         });
 
         verifyInvokedWith(action, object()
+            .add("userId", 2)
+            .add("provider", "INOREADER")
             .add("articles", object()
                 .add("1232ca7865", array()
                     .add(object()
-                        .add("userId", 2)
+                        .add("title", "Pedro: Nie pomyliłem się, odchodząc z Barcelony")
+                        .add("operation", "save_article"))
+                    .add(object()
                         .add("title", "Pedro: Nie pomyliłem się, odchodząc z Barcelony")
                         .add("operation", "mark_as_read")))));
 

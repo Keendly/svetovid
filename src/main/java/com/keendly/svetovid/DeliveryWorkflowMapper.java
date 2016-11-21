@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -180,23 +181,25 @@ public class DeliveryWorkflowMapper {
     public static GenerateLinksRequest mapDeliveryRequestToGenerateLinksRequest(DeliveryRequest deliveryRequest){
         Map<String, List<GenerateLinksArticle>> articles = new HashMap<>();
         for (DeliveryItem deliveryItem : deliveryRequest.items){
-            if (deliveryItem.markAsRead){
-                // if whole feed is gonna be marked as read, we cannot make individual articles unread
-                continue;
-            }
+            // if whole feed is gonna be marked as read, we cannot make individual articles unread
+            List<String> operations = deliveryItem.markAsRead ? Arrays.asList("save_article") :
+                Arrays.asList("save_article", "mark_as_read");
 
             for (DeliveryArticle deliveryArticle : deliveryItem.articles){
                 List<GenerateLinksArticle> links = new ArrayList<>();
-                GenerateLinksArticle a = new GenerateLinksArticle();
-                a.userId = deliveryRequest.userId;
-                a.operation = "mark_as_read";
-                a.title = deliveryArticle.title;
-                links.add(a);
+                for (String operation : operations){
+                    GenerateLinksArticle a = new GenerateLinksArticle();
+                    a.operation = operation;
+                    a.title = deliveryArticle.title;
+                    links.add(a);
+                }
                 articles.put(deliveryArticle.id, links);
             }
         }
         GenerateLinksRequest request = new GenerateLinksRequest();
         request.articles = articles;
+        request.userId = deliveryRequest.userId;
+        request.provider = deliveryRequest.provider;
         return request;
     }
 }

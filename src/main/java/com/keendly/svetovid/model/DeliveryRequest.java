@@ -8,6 +8,7 @@ public class DeliveryRequest {
     public Integer userId;
     public String email;
     public Long timestamp;
+    public String provider;
 
     public List<DeliveryItem> items;
     public S3Object s3Items;
