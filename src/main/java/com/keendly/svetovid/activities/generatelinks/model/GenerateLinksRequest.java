@@ -8,4 +8,5 @@ public class GenerateLinksRequest {
     public Map<String, List<GenerateLinksArticle>> articles;
     public String provider;
     public Integer userId;
+    public String s3Articles;
 }

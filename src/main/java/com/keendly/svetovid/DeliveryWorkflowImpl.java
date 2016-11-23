@@ -247,8 +247,14 @@ public class DeliveryWorkflowImpl implements DeliveryWorkflow {
 
     public Promise<String> invokeGenerateActionLinks(DeliveryRequest deliveryRequest){
         GenerateLinksRequest generateLinksRequest = mapDeliveryRequestToGenerateLinksRequest(deliveryRequest);
-        LOG.trace("Triggering generate links with {}", generateLinksRequest);
-        return LambdaInvoker.invoke("action-api", Jackson.toJsonString(generateLinksRequest));
+        if (Jackson.toJsonString(generateLinksRequest).length() > REQUEST_MAX_SIZE){
+            String key = storeInS3(Jackson.toJsonString(generateLinksRequest.articles));
+            generateLinksRequest.articles = null;
+            generateLinksRequest.s3Articles = key;
+        }
+        String request = Jackson.toJsonString(generateLinksRequest);
+        LOG.trace("Triggering generate links with {}", request);
+        return LambdaInvoker.invoke("action-api", request);
     }
 
 //    @Asynchronous
