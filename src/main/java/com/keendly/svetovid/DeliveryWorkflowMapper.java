@@ -35,13 +35,15 @@ public class DeliveryWorkflowMapper {
     public static Optional<ExtractRequest> mapDeliveryRequestToExtractArticlesRequest(DeliveryRequest request){
         ExtractRequest extractRequest = new ExtractRequest();
 
-
         boolean articlesFound = false;
         for (DeliveryItem item : request.items){
             if (item.articles == null || item.articles.isEmpty()){
                 continue;
             }
             articlesFound = true;
+            if (!item.fullArticle){
+                continue;
+            }
             for (DeliveryArticle article : item.articles){
                 ExtractRequest.ExtractRequestItem requestItem = new ExtractRequest.ExtractRequestItem();
                 requestItem.url = article.url;
